@@ -1,0 +1,85 @@
+{
+  "weekly_optimization": {
+    "horizon": "weekly",
+    "solver_status": "Optimal",
+    "solver_time_seconds": 0.159,
+    "total_defects_in_scope": 52,
+    "total_defects_scheduled": 52,
+    "defects_unscheduled_count": 0,
+    "defect_clearance_rate_pct": 100.0,
+    "p1_immediate_total": 4,
+    "p1_immediate_cleared": 4,
+    "p1_immediate_clearance_pct": 100.0,
+    "p2_urgent_total": 22,
+    "p2_urgent_cleared": 22,
+    "p2_urgent_clearance_pct": 100.0,
+    "combined_p1_p2_clearance_pct": 100.0,
+    "unscheduled_p1_p2_count": 0,
+    "total_available_slots": 51,
+    "slots_utilized_count": 29,
+    "slot_utilization_pct": 56.9,
+    "bundled_slots_count": 18,
+    "bundled_defects_count": 41,
+    "bundling_rate_pct": 78.8,
+    "total_priority_value_scheduled": 3360.21,
+    "priority_clearance_pct": 100.0
+  },
+  "monthly_optimization": {
+    "horizon": "monthly",
+    "solver_status": "Optimal",
+    "solver_time_seconds": 0.293,
+    "total_defects_in_scope": 52,
+    "total_defects_scheduled": 52,
+    "defects_unscheduled_count": 0,
+    "defect_clearance_rate_pct": 100.0,
+    "p1_immediate_total": 4,
+    "p1_immediate_cleared": 4,
+    "p1_immediate_clearance_pct": 100.0,
+    "p2_urgent_total": 22,
+    "p2_urgent_cleared": 22,
+    "p2_urgent_clearance_pct": 100.0,
+    "combined_p1_p2_clearance_pct": 100.0,
+    "unscheduled_p1_p2_count": 0,
+    "total_available_slots": 82,
+    "slots_utilized_count": 33,
+    "slot_utilization_pct": 40.2,
+    "bundled_slots_count": 17,
+    "bundled_defects_count": 36,
+    "bundling_rate_pct": 69.2,
+    "total_priority_value_scheduled": 3360.21,
+    "priority_clearance_pct": 100.0
+  },
+  "bundling_summary": {
+    "weekly_bundled_slots": 18,
+    "weekly_bundled_defects": 41,
+    "monthly_bundled_slots": 17,
+    "monthly_bundled_defects": 36
+  },
+  "before_vs_after_metrics": {
+    "before_optimization": {
+      "total_pending_defects": 52,
+      "critical_p1_p2_pending": 26,
+      "scheduled_p1_p2": 0,
+      "p1_p2_clearance_rate_pct": 0.0,
+      "corridor_block_utilization_pct": 0.0,
+      "multi_department_synergy_blocks": 0,
+      "safety_risk_index": "HIGH - Severe backlog"
+    },
+    "after_optimization_weekly": {
+      "defects_scheduled": 52,
+      "p1_immediate_clearance_pct": 100.0,
+      "p2_urgent_clearance_pct": 100.0,
+      "combined_p1_p2_clearance_pct": 100.0,
+      "unscheduled_p1_p2_count": 0,
+      "weekly_slot_utilization_pct": 56.9,
+      "bundled_slots_count": 18,
+      "safety_risk_index": "ZERO HIGH-CRITICAL RISK - 100% P1/P2 Cleared"
+    },
+    "after_optimization_monthly": {
+      "defects_scheduled": 52,
+      "defect_clearance_rate_pct": 100.0,
+      "p1_p2_clearance_pct": 100.0,
+      "unscheduled_p1_p2_count": 0
+    }
+  }
+}
