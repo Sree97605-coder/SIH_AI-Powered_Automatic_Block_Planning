@@ -1,15 +1,15 @@
 defect_id,department,location,defect_type,severity,overdue_days,estimated_duration_hours,criticality_score,asset_impact,description
-TDMS-001,TRD,SP Panki (SEC-01),Section insulator defect,High,7,5.0,9,High,Section insulator pitting; risk of pantograph entanglement on Up high-density line.
-TDMS-002,TRD,SEC-01 / km 22.4,Contact wire wear,High,10,6.0,9,High,Contact wire residual 8.6 mm (condemn 8.25 mm); replacement needs power + traffic block.
-TDMS-003,TRD,PNKD ATD,Auto tensioning device seized,Medium,14,3.5,7,Medium,"ATD pulley not paying out; sag variation with temperature, sparking reported."
-TDMS-004,TRD,SSP Bindki Road,CB trip / protection mal-op,High,3,4.0,8,High,Feeder CB nuisance trip; OHE isolation of SEC-02 during peaks.
-TDMS-005,TRD,SEC-02 / km 63.0,Insulator flashover,Medium,19,3.0,6,Medium,Stay tube insulator pollution flashover after fog; washing + replacement.
-TDMS-006,TRD,SP Fatehpur,Transformer oil leak (AT),Medium,21,5.5,7,High,"Auxiliary transformer weeping at bushing; if failed, station lighting/signalling UPS stressed."
-TDMS-007,TRD,SEC-03 / km 96.8,Catenary sag / stagger out,Low,34,4.0,4,Low,Stagger at cantilever 4 beyond 200 mm; plan with Engineering destressing.
-TDMS-008,TRD,KGA / mast 412/8,Mast foundation settlement,High,8,7.0,8,High,OHE mast tilt 1.8° after monsoon; guy and foundation repair needs long block.
-TDMS-009,TRD,SSP Sirathu,Jumper loose / hot spot,Medium,11,2.5,6,Medium,Thermovision 78 °C on feeder jumper; tighten under power block.
-TDMS-010,TRD,SEC-04 / km 152.1,Contact wire wear,Medium,16,6.0,6,Medium,Localized wear at overlap; medium density allows day shadow if goods forecast permits.
-TDMS-011,TRD,SP Subedarganj,Section insulator defect,High,4,5.0,9,High,Neutral section rough ride reported by Rajdhani crew; PRYJ approach — high impact.
+TDMS-001,TRD,SP Panki (SEC-01),Section insulator defect,High,7,3.5,9,High,Section insulator pitting; risk of pantograph entanglement on Up high-density line. Single-session replacement under 25 kV isolation.
+TDMS-002,TRD,SEC-01 / km 22.4,Contact wire wear,High,10,3.5,9,High,Contact wire residual 8.6 mm (condemn 8.25 mm); replacement. Session 1 of 2 (wire removal + new wire stringing night 1; tensioning + stagger correction night 2).
+TDMS-003,TRD,PNKD ATD,Auto tensioning device seized,Medium,14,3.0,7,Medium,"ATD pulley not paying out; sag variation with temperature, sparking reported. Single session."
+TDMS-004,TRD,SSP Bindki Road,CB trip / protection mal-op,High,3,3.0,8,High,Feeder CB nuisance trip; OHE isolation of SEC-02 during peaks. Single session relay + CB testing.
+TDMS-005,TRD,SEC-02 / km 63.0,Insulator flashover,Medium,19,3.0,6,Medium,Stay tube insulator pollution flashover after fog; washing + replacement. Single session.
+TDMS-006,TRD,SP Fatehpur,Transformer oil leak (AT),Medium,21,3.0,7,High,"Auxiliary transformer weeping at bushing; if failed, station lighting/signalling UPS stressed. Single session gasket replacement + oil top-up."
+TDMS-007,TRD,SEC-03 / km 96.8,Catenary sag / stagger out,Low,34,3.0,4,Low,Stagger at cantilever 4 beyond 200 mm; plan with Engineering destressing. Single session.
+TDMS-008,TRD,KGA / mast 412/8,Mast foundation settlement,High,8,3.0,8,High,OHE mast tilt 1.8° after monsoon; guy and foundation repair. Session 1 of 2 (excavation + grouting night 1; guy tensioning + inspection night 2).
+TDMS-009,TRD,SSP Sirathu,Jumper loose / hot spot,Medium,11,2.5,6,Medium,Thermovision 78 °C on feeder jumper; tighten under power block. Single session.
+TDMS-010,TRD,SEC-04 / km 152.1,Contact wire wear,Medium,16,3.0,6,Medium,Localized wear at overlap; medium density allows day shadow. Session 1 of 2 nights.
+TDMS-011,TRD,SP Subedarganj,Section insulator defect,High,4,3.5,9,High,Neutral section rough ride reported by Rajdhani crew; PRYJ approach. Single-session replacement.
 TDMS-012,TRD,SFG Yard OHE,Insulator flashover,Low,28,2.5,3,Low,Yard line insulator; can be isolated without main line block.
-TDMS-013,TRD,SEC-05 / km 198.5,Auto tensioning device seized,Medium,9,3.5,7,High,ATD on PRYJ approach; summer expansion risk of pantograph hook-up.
-TDMS-014,TRD,PRYJ / TSS feed,CB trip / protection mal-op,High,2,4.5,10,High,Incoming 132 kV CB slow to close after trip; terminal station outage risk.
+TDMS-013,TRD,SEC-05 / km 198.5,Auto tensioning device seized,Medium,9,3.0,7,High,ATD on PRYJ approach; summer expansion risk of pantograph hook-up. Single session.
+TDMS-014,TRD,PRYJ / TSS feed,CB trip / protection mal-op,High,2,3.5,10,High,Incoming 132 kV CB slow to close after trip; terminal station outage risk. Single session: CB timing tests + relay setting adjustment.

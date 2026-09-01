@@ -1,23 +1,23 @@
 defect_id,department,location,defect_type,severity,overdue_days,estimated_duration_hours,criticality_score,asset_impact,description
-TMS-001,Engineering,SEC-01 / km 4.8 (CNB–CNBI Up),Rail fracture (suspect),High,6,4.0,10,High,Ultrasonic indication of transverse defect on 60 kg 90 UTS rail; TSR 30 km/h in force.
-TMS-002,Engineering,CNB Yard (PF-3 turnout 12A),Point and crossing wear,High,11,6.0,9,High,Nose and wing rail wear beyond condemning limit; affects coaching dispatch from Kanpur Central.
-TMS-003,Engineering,PNKD / km 14.2 Down,Weld failure (AT weld),High,3,5.0,9,High,Alumino-thermit weld dipped; requires destressing and re-weld under traffic block.
+TMS-001,Engineering,SEC-01 / km 4.8 (CNB–CNBI Up),Rail fracture (suspect),High,6,4.0,10,High,Ultrasonic indication of transverse defect on 60 kg 90 UTS rail; TSR 30 km/h in force. Single-session possession.
+TMS-002,Engineering,CNB Yard (PF-3 turnout 12A),Point and crossing wear,High,11,3.5,9,High,Nose and wing rail wear beyond condemning limit; affects coaching dispatch. Session 1 of 2 (closure + measurement); Session 2 next night.
+TMS-003,Engineering,PNKD / km 14.2 Down,Weld failure (AT weld),High,3,3.0,9,High,Alumino-thermit weld dipped; requires destressing and re-weld under traffic block. Single session; preheating done during corridor.
 TMS-004,Engineering,SEC-01 / km 28.6,Gauge slack,Medium,18,3.0,7,Medium,Wide gauge 8 mm over 12 m chord on high-speed stretch; tamping + gauging needed.
-TMS-005,Engineering,SEC-02 / km 58.1 (BKO–FTP),Ballast deficiency,Medium,24,8.0,6,Medium,Cushion below 250 mm after monsoon; machine packing preferred with 6–8 hour corridor block.
-TMS-006,Engineering,FTP Yard (loop 2),Sleeper damage (PSC),Medium,9,4.5,6,Medium,Cluster of cracked PSC sleepers at loop turnout; replacement before monsoon inspection.
-TMS-007,Engineering,SEC-03 / km 91.4,Rail corrugation,Low,41,6.0,4,Low,"Short-pitch corrugation on Down line; grinding requested, not safety-critical yet."
-TMS-008,Engineering,KGA / km 113.5 Up,Hanging sleeper,Medium,14,3.5,7,Medium,Voiding under 9 sleepers; risk of geometry burst at 110 km/h.
-TMS-009,Engineering,SEC-04 / km 128.0 (KGA–SRO),Track geometry (twist),High,5,5.0,8,High,Twist 4.2 mm/3 m recorded on TRC; speed restriction 50 km/h pending packing.
+TMS-005,Engineering,SEC-02 / km 58.1 (BKO–FTP),Ballast deficiency,Medium,24,3.0,6,Medium,"Cushion below 250 mm after monsoon; machine packing. Session 1 of 2 (3 h/night, 2 nights). Total 6 h spread over consecutive nights."
+TMS-006,Engineering,FTP Yard (loop 2),Sleeper damage (PSC),Medium,9,3.0,6,Medium,Cluster of cracked PSC sleepers at loop turnout; replacement before monsoon inspection. Single session.
+TMS-007,Engineering,SEC-03 / km 91.4,Rail corrugation,Low,41,3.0,4,Low,"Short-pitch corrugation on Down line; grinding in day shadow block. Session 1 of 2 (3 h/day, 2 sessions)."
+TMS-008,Engineering,KGA / km 113.5 Up,Hanging sleeper,Medium,14,3.0,7,Medium,Voiding under 9 sleepers; risk of geometry burst at 110 km/h. Single-session tamping.
+TMS-009,Engineering,SEC-04 / km 128.0 (KGA–SRO),Track geometry (twist),High,5,3.0,8,High,Twist 4.2 mm/3 m recorded on TRC; speed restriction 50 km/h pending packing. Single-session correction.
 TMS-010,Engineering,SRO Yard,Level crossing road surface (engg.),Low,33,2.5,3,Low,LC-42A approaches potholed; engineering share of joint block with S&T.
-TMS-011,Engineering,SEC-04 / km 148.7,Rail wear (lateral),Medium,21,7.0,6,Medium,Curve 2.5° lateral wear approaching 50% head; planned rail renewal patch.
-TMS-012,Engineering,BRE / km 160.2,Bridge approach settlement,High,8,6.5,9,High,Minor bridge 412 approach dip 18 mm; packing and approach rail destressing needed.
-TMS-013,Engineering,SEC-05 / km 178.4 (SYWN–SFG),Rail fracture (suspect),High,2,4.0,10,High,USFD cluster of 3 defects in 200 m; night block preferred before PRYJ terminal peak.
-TMS-014,Engineering,SFG Yard (goods lead),Point and crossing wear,Medium,16,5.5,7,High,1:12 turnout on goods lead to Subedarganj yard; delays inward rakes if failed.
-TMS-015,Engineering,PRYJ Yard (PF-6),Track geometry (unevenness),Medium,12,4.0,6,Medium,Coaching pit approach unevenness; affects rake placement at Prayagraj Junction.
-TMS-016,Engineering,SEC-02 / km 68.9,LWR destressing overdue,Medium,27,8.0,7,Medium,LWR panel overdue destressing before summer; needs 25 kV power block coordination with TRD.
-TMS-017,Engineering,CNBI / km 8.1,Sleeper damage (PSC),Low,38,3.0,3,Low,Isolated cracked sleepers on slow line; can wait for machine block.
-TMS-018,Engineering,SEC-03 / km 102.6,Ballast deficiency,Low,45,7.0,4,Low,Shoulder ballast flow after rains; sectional goods can be diverted via day shadow block.
-TMS-019,Engineering,FTP / km 77.8 Down,Weld failure (flash butt),High,4,5.5,9,High,Cupped FBW at station limit; TSR 20 km/h affecting Fatehpur stoppers.
-TMS-020,Engineering,SEC-01 / km 39.2,Rail wear (vertical),Medium,19,6.0,5,Medium,Vertical wear 12 mm on 20-year-old 60 kg rail; planned insertion of 1.2 km panel.
-TMS-021,Engineering,SEC-05 / km 194.0 (SFG–PRYJ),Gauge slack,High,7,3.5,8,High,Slack gauge on automatic block approach; high coaching density into PRYJ.
+TMS-011,Engineering,SEC-04 / km 148.7,Rail wear (lateral),Medium,21,3.0,6,Medium,"Curve 2.5° lateral wear approaching 50% head; planned rail renewal patch. Session 1 of 2 (rail closure + insertion, 3 h/night)."
+TMS-012,Engineering,BRE / km 160.2,Bridge approach settlement,High,8,4.0,9,High,Minor bridge 412 approach dip 18 mm; packing and approach rail destressing. Single 4-hour night possession.
+TMS-013,Engineering,SEC-05 / km 178.4 (SYWN–SFG),Rail fracture (suspect),High,2,4.0,10,High,USFD cluster of 3 defects in 200 m; night block preferred before PRYJ terminal peak. Single-session USFD + patching.
+TMS-014,Engineering,SFG Yard (goods lead),Point and crossing wear,Medium,16,3.5,7,High,1:12 turnout on goods lead to Subedarganj yard; delays inward rakes if failed. Session 1 of 2 nights.
+TMS-015,Engineering,PRYJ Yard (PF-6),Track geometry (unevenness),Medium,12,3.5,6,Medium,Coaching pit approach unevenness; affects rake placement at Prayagraj Junction. Single-session tamping.
+TMS-016,Engineering,SEC-02 / km 68.9,LWR destressing overdue,Medium,27,3.5,7,Medium,LWR panel overdue destressing before summer; needs 25 kV power block. Session 1 of 2 (stress-free length measurement night 1; destressing night 2). Coordinate with TRD.
+TMS-017,Engineering,CNBI / km 8.1,Sleeper damage (PSC),Low,38,3.0,3,Low,Isolated cracked sleepers on slow line; can wait for machine block. Single session.
+TMS-018,Engineering,SEC-03 / km 102.6,Ballast deficiency,Low,45,3.0,4,Low,Shoulder ballast flow after rains; sectional goods diverted via day shadow block. Session 1 of 2 nights.
+TMS-019,Engineering,FTP / km 77.8 Down,Weld failure (flash butt),High,4,3.0,9,High,Cupped FBW at station limit; TSR 20 km/h affecting Fatehpur stoppers. Single 3-hour night session.
+TMS-020,Engineering,SEC-01 / km 39.2,Rail wear (vertical),Medium,19,3.5,5,Medium,"Vertical wear 12 mm on 20-year-old 60 kg rail; planned insertion of 1.2 km panel. Session 1 of 2 nights (fishplating night 1, insertion night 2)."
+TMS-021,Engineering,SEC-05 / km 194.0 (SFG–PRYJ),Gauge slack,High,7,3.5,8,High,Slack gauge on automatic block approach; high coaching density into PRYJ. Single-session tamping + gauging.
 TMS-022,Engineering,BKO Yard,Hanging sleeper,Low,29,2.5,4,Low,Loop line voiding; no effect on main line if isolated.

@@ -21,7 +21,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -48,7 +48,7 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -129,7 +129,7 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -183,7 +183,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -211,7 +211,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -239,7 +239,7 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -323,7 +323,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -351,7 +351,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -379,7 +379,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -400,14 +400,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-003",
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -427,7 +427,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-004",
@@ -454,7 +454,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-017",
@@ -481,14 +481,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-020",
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -508,7 +508,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-022",
@@ -535,14 +535,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-001",
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -563,14 +563,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-002",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -591,14 +591,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-003",
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -619,7 +619,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-014",
@@ -647,7 +647,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-016",
@@ -675,14 +675,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-001",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -703,14 +703,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -731,14 +731,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -759,7 +759,7 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-004",
@@ -786,7 +786,7 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-017",
@@ -813,14 +813,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-020",
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -840,7 +840,7 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-022",
@@ -867,14 +867,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-001",
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -895,14 +895,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-002",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -923,14 +923,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-003",
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -951,7 +951,7 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-014",
@@ -979,7 +979,7 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-016",
@@ -1007,14 +1007,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-001",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1035,14 +1035,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1063,14 +1063,14 @@
         "department": "Engineering",
         "type": "Weld failure (AT weld)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1125,7 +1125,7 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -1179,7 +1179,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1207,7 +1207,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1235,7 +1235,7 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1319,7 +1319,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1347,7 +1347,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1375,7 +1375,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1403,7 +1403,7 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -1457,7 +1457,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1485,7 +1485,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1513,7 +1513,7 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1597,7 +1597,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1625,7 +1625,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1653,7 +1653,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1674,7 +1674,7 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-022",
@@ -1701,14 +1701,14 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-001",
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1729,14 +1729,14 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-002",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1757,14 +1757,14 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-003",
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1785,7 +1785,7 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-014",
@@ -1813,7 +1813,7 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-016",
@@ -1841,14 +1841,14 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-001",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1869,14 +1869,14 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1897,14 +1897,14 @@
         "department": "Engineering",
         "type": "Rail wear (vertical)",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1932,7 +1932,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -1960,7 +1960,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -1988,7 +1988,7 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2072,7 +2072,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2100,7 +2100,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2128,7 +2128,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2149,14 +2149,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-002",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -2176,14 +2176,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-003",
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -2203,7 +2203,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-014",
@@ -2230,7 +2230,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-016",
@@ -2257,14 +2257,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-001",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2285,14 +2285,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2313,14 +2313,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2341,14 +2341,14 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-003",
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -2368,7 +2368,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-014",
@@ -2395,7 +2395,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-016",
@@ -2422,14 +2422,14 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-001",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2450,14 +2450,14 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2478,14 +2478,14 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2506,7 +2506,7 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-014",
@@ -2533,7 +2533,7 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-016",
@@ -2560,14 +2560,14 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-001",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2588,14 +2588,14 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2616,14 +2616,14 @@
         "department": "S&T",
         "type": "Point machine sluggish",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2678,7 +2678,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2706,7 +2706,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2734,7 +2734,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2762,7 +2762,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2790,7 +2790,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -2818,7 +2818,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -2839,14 +2839,14 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-002",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -2866,14 +2866,14 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -2893,14 +2893,14 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "High",
-        "duration": 6.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-003",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -2920,14 +2920,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-006",
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -2947,14 +2947,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-016",
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -2974,7 +2974,7 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-004",
@@ -3002,7 +3002,7 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-005",
@@ -3030,7 +3030,7 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-015",
@@ -3058,14 +3058,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-004",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3086,7 +3086,7 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-005",
@@ -3114,14 +3114,14 @@
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-016",
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -3141,7 +3141,7 @@
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-004",
@@ -3169,7 +3169,7 @@
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-005",
@@ -3197,7 +3197,7 @@
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-015",
@@ -3225,14 +3225,14 @@
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-004",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3253,7 +3253,7 @@
         "department": "Engineering",
         "type": "Sleeper damage (PSC)",
         "severity": "Medium",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-005",
@@ -3281,7 +3281,7 @@
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-004",
@@ -3309,7 +3309,7 @@
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-005",
@@ -3337,7 +3337,7 @@
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-015",
@@ -3365,14 +3365,14 @@
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-004",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3393,7 +3393,7 @@
         "department": "Engineering",
         "type": "LWR destressing overdue",
         "severity": "Medium",
-        "duration": 8.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-005",
@@ -3482,7 +3482,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3565,7 +3565,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3621,7 +3621,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3670,7 +3670,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-005",
@@ -3697,14 +3697,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-018",
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -3724,14 +3724,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-019",
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -3751,14 +3751,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-006",
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3779,14 +3779,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-007",
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3807,14 +3807,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-006",
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3835,14 +3835,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-007",
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3863,14 +3863,14 @@
         "department": "Engineering",
         "type": "Rail corrugation",
         "severity": "Low",
-        "duration": 6.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3891,14 +3891,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-019",
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -3918,14 +3918,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-006",
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3946,14 +3946,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-007",
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -3974,14 +3974,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-006",
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4002,14 +4002,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-007",
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4030,14 +4030,14 @@
         "department": "Engineering",
         "type": "Ballast deficiency",
         "severity": "Low",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4058,14 +4058,14 @@
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-006",
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4086,14 +4086,14 @@
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-007",
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4114,14 +4114,14 @@
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-006",
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4142,14 +4142,14 @@
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-007",
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4170,14 +4170,14 @@
         "department": "Engineering",
         "type": "Weld failure (flash butt)",
         "severity": "High",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4198,14 +4198,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-007",
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4225,14 +4225,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-006",
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4253,14 +4253,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-007",
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4281,14 +4281,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4309,14 +4309,14 @@
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-006",
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4337,14 +4337,14 @@
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-007",
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4365,14 +4365,14 @@
         "department": "S&T",
         "type": "Cable insulation / megger fail",
         "severity": "Medium",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4393,14 +4393,14 @@
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-007",
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4420,14 +4420,14 @@
         "department": "TRD",
         "type": "Transformer oil leak (AT)",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4447,14 +4447,14 @@
         "department": "TRD",
         "type": "Catenary sag / stagger out",
         "severity": "Low",
-        "duration": 4.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-008",
         "department": "TRD",
         "type": "Mast foundation settlement",
         "severity": "High",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4474,14 +4474,14 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-009",
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4501,7 +4501,7 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-010",
@@ -4528,14 +4528,14 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-011",
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4555,7 +4555,7 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-008",
@@ -4583,14 +4583,14 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-009",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4611,7 +4611,7 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-010",
@@ -4639,7 +4639,7 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-009",
@@ -4667,14 +4667,14 @@
         "department": "Engineering",
         "type": "Hanging sleeper",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-010",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4695,7 +4695,7 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-010",
@@ -4722,14 +4722,14 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TMS-011",
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4749,7 +4749,7 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-008",
@@ -4777,14 +4777,14 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-009",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4805,7 +4805,7 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-010",
@@ -4833,7 +4833,7 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-009",
@@ -4861,14 +4861,14 @@
         "department": "Engineering",
         "type": "Track geometry (twist)",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-010",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -4896,7 +4896,7 @@
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -4951,7 +4951,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5035,7 +5035,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5056,7 +5056,7 @@
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-008",
@@ -5084,14 +5084,14 @@
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-009",
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5112,7 +5112,7 @@
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-010",
@@ -5140,7 +5140,7 @@
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-009",
@@ -5168,14 +5168,14 @@
         "department": "Engineering",
         "type": "Rail wear (lateral)",
         "severity": "Medium",
-        "duration": 7.0
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-010",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5203,7 +5203,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -5285,7 +5285,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5306,7 +5306,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "SMMS-010",
@@ -5333,7 +5333,7 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-009",
@@ -5361,14 +5361,14 @@
         "department": "S&T",
         "type": "Axle counter disturbance",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-010",
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5424,7 +5424,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5452,7 +5452,7 @@
         "department": "TRD",
         "type": "Contact wire wear",
         "severity": "Medium",
-        "duration": 6.0
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -5472,7 +5472,7 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TMS-013",
@@ -5499,14 +5499,14 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TMS-014",
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -5526,14 +5526,14 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TMS-015",
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -5553,7 +5553,7 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TMS-021",
@@ -5580,13 +5580,41 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "SMMS-011",
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
+        "duration": 3.5
+      },
+      "is_cross_department": true,
+      "departments": [
+        "Engineering",
+        "S&T"
+      ],
+      "spatial_distance_km": null,
+      "synergy_type": "engg_s_and_t_corridor_shadow",
+      "synergy_rationale": "Track maintenance and S&T cable/signal work share section traffic block.",
+      "can_bundle": true,
+      "has_operational_constraint": false,
+      "constraint_description": "None (fully compatible)"
+    },
+    {
+      "section_id": "SEC-05",
+      "defect_1": {
+        "id": "TMS-012",
+        "department": "Engineering",
+        "type": "Bridge approach settlement",
+        "severity": "High",
+        "duration": 4.0
+      },
+      "defect_2": {
+        "id": "SMMS-012",
+        "department": "S&T",
+        "type": "Interlocking relay / EI card fault",
+        "severity": "High",
         "duration": 4.0
       },
       "is_cross_department": true,
@@ -5608,35 +5636,7 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
-      },
-      "defect_2": {
-        "id": "SMMS-012",
-        "department": "S&T",
-        "type": "Interlocking relay / EI card fault",
-        "severity": "High",
-        "duration": 7.0
-      },
-      "is_cross_department": true,
-      "departments": [
-        "Engineering",
-        "S&T"
-      ],
-      "spatial_distance_km": null,
-      "synergy_type": "engg_s_and_t_corridor_shadow",
-      "synergy_rationale": "Track maintenance and S&T cable/signal work share section traffic block.",
-      "can_bundle": true,
-      "has_operational_constraint": false,
-      "constraint_description": "None (fully compatible)"
-    },
-    {
-      "section_id": "SEC-05",
-      "defect_1": {
-        "id": "TMS-012",
-        "department": "Engineering",
-        "type": "Bridge approach settlement",
-        "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "SMMS-013",
@@ -5664,14 +5664,14 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-011",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -5692,7 +5692,7 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-012",
@@ -5720,14 +5720,14 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-013",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5748,14 +5748,14 @@
         "department": "Engineering",
         "type": "Bridge approach settlement",
         "severity": "High",
-        "duration": 6.5
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -5783,7 +5783,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -5810,7 +5810,7 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -5864,7 +5864,7 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -5892,7 +5892,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "is_cross_department": true,
       "departments": [
@@ -5948,7 +5948,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6004,7 +6004,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6032,7 +6032,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6053,14 +6053,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-015",
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -6080,7 +6080,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-021",
@@ -6107,13 +6107,41 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-011",
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
+        "duration": 3.5
+      },
+      "is_cross_department": true,
+      "departments": [
+        "Engineering",
+        "S&T"
+      ],
+      "spatial_distance_km": null,
+      "synergy_type": "joint_point_and_crossing_block",
+      "synergy_rationale": "Engineering track replacement and S&T point machine maintenance can be executed jointly under coordinated sequence.",
+      "can_bundle": true,
+      "has_operational_constraint": false,
+      "constraint_description": "None (fully compatible)"
+    },
+    {
+      "section_id": "SEC-05",
+      "defect_1": {
+        "id": "TMS-014",
+        "department": "Engineering",
+        "type": "Point and crossing wear",
+        "severity": "Medium",
+        "duration": 3.5
+      },
+      "defect_2": {
+        "id": "SMMS-012",
+        "department": "S&T",
+        "type": "Interlocking relay / EI card fault",
+        "severity": "High",
         "duration": 4.0
       },
       "is_cross_department": true,
@@ -6135,35 +6163,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
-      },
-      "defect_2": {
-        "id": "SMMS-012",
-        "department": "S&T",
-        "type": "Interlocking relay / EI card fault",
-        "severity": "High",
-        "duration": 7.0
-      },
-      "is_cross_department": true,
-      "departments": [
-        "Engineering",
-        "S&T"
-      ],
-      "spatial_distance_km": null,
-      "synergy_type": "joint_point_and_crossing_block",
-      "synergy_rationale": "Engineering track replacement and S&T point machine maintenance can be executed jointly under coordinated sequence.",
-      "can_bundle": true,
-      "has_operational_constraint": false,
-      "constraint_description": "None (fully compatible)"
-    },
-    {
-      "section_id": "SEC-05",
-      "defect_1": {
-        "id": "TMS-014",
-        "department": "Engineering",
-        "type": "Point and crossing wear",
-        "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-013",
@@ -6191,14 +6191,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-011",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6219,7 +6219,7 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-012",
@@ -6247,14 +6247,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-013",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6275,14 +6275,14 @@
         "department": "Engineering",
         "type": "Point and crossing wear",
         "severity": "Medium",
-        "duration": 5.5
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6303,7 +6303,7 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TMS-021",
@@ -6330,14 +6330,14 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-011",
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6358,14 +6358,14 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-012",
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6386,7 +6386,7 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-013",
@@ -6414,14 +6414,14 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-011",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6442,7 +6442,7 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-012",
@@ -6470,14 +6470,14 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-013",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6498,14 +6498,14 @@
         "department": "Engineering",
         "type": "Track geometry (unevenness)",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6533,7 +6533,7 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6561,7 +6561,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6617,7 +6617,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6673,7 +6673,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6701,7 +6701,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6722,14 +6722,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-012",
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "is_cross_department": false,
       "departments": [
@@ -6749,7 +6749,7 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "SMMS-013",
@@ -6776,14 +6776,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-011",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6804,7 +6804,7 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-012",
@@ -6832,14 +6832,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-013",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6860,14 +6860,14 @@
         "department": "S&T",
         "type": "Track circuit failure",
         "severity": "Medium",
-        "duration": 4.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6888,7 +6888,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "defect_2": {
         "id": "SMMS-013",
@@ -6915,14 +6915,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-011",
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -6943,7 +6943,7 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-012",
@@ -6971,14 +6971,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-013",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -6999,14 +6999,14 @@
         "department": "S&T",
         "type": "Interlocking relay / EI card fault",
         "severity": "High",
-        "duration": 7.0
+        "duration": 4.0
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -7034,7 +7034,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -7090,7 +7090,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": true,
       "departments": [
@@ -7118,7 +7118,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": true,
       "departments": [
@@ -7139,7 +7139,7 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-012",
@@ -7166,14 +7166,14 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-013",
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -7193,14 +7193,14 @@
         "department": "TRD",
         "type": "Section insulator defect",
         "severity": "High",
-        "duration": 5.0
+        "duration": 3.5
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -7227,7 +7227,7 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "is_cross_department": false,
       "departments": [
@@ -7254,7 +7254,7 @@
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [
@@ -7274,14 +7274,14 @@
         "department": "TRD",
         "type": "Auto tensioning device seized",
         "severity": "Medium",
-        "duration": 3.5
+        "duration": 3.0
       },
       "defect_2": {
         "id": "TDMS-014",
         "department": "TRD",
         "type": "CB trip / protection mal-op",
         "severity": "High",
-        "duration": 4.5
+        "duration": 3.5
       },
       "is_cross_department": false,
       "departments": [

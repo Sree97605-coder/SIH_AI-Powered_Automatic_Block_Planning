@@ -20,9 +20,9 @@
     "GoodsForecast": 13
   },
   "total_candidate_assignments": 851,
-  "direct_fit_candidate_assignments": 256,
+  "direct_fit_candidate_assignments": 607,
   "avg_candidates_per_defect": 16.4,
-  "avg_fit_candidates_per_defect": 4.9,
+  "avg_fit_candidates_per_defect": 11.7,
   "total_bundling_pairs": 263,
   "cross_department_bundling_pairs": 186,
   "trd_power_shadow_bundling_pairs": 123,
