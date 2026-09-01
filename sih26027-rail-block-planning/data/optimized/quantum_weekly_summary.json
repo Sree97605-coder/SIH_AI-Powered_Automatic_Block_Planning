@@ -1,0 +1,13 @@
+{
+  "method": "Quantum-Inspired Simulated Annealing (QUBO)",
+  "horizon": "weekly",
+  "qubo_variables_count": 205,
+  "qubo_matrix_size": "205x205",
+  "ground_state_energy": -1929.34,
+  "solve_time_seconds": 23.777,
+  "total_defects_scheduled": 27,
+  "total_slots_utilized": 22,
+  "bundled_slots_count": 5,
+  "total_priority_cleared": 1668.34,
+  "quantum_schedule_csv": "C:\\Users\\sree\\Projects\\sih26027-rail-block-planning\\data\\optimized\\quantum_weekly_schedule.csv"
+}
