@@ -14,15 +14,16 @@
     "High": 20,
     "Low": 10
   },
-  "total_block_slots": 82,
+  "total_block_slots": 122,
   "slots_by_source": {
     "Timetable": 69,
+    "MegaBlock": 40,
     "GoodsForecast": 13
   },
-  "total_candidate_assignments": 851,
-  "direct_fit_candidate_assignments": 607,
-  "avg_candidates_per_defect": 16.4,
-  "avg_fit_candidates_per_defect": 11.7,
+  "total_candidate_assignments": 1267,
+  "direct_fit_candidate_assignments": 1023,
+  "avg_candidates_per_defect": 24.4,
+  "avg_fit_candidates_per_defect": 19.7,
   "total_bundling_pairs": 263,
   "cross_department_bundling_pairs": 186,
   "trd_power_shadow_bundling_pairs": 123,

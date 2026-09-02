@@ -1,24 +1,26 @@
 {
-  "total_slots": 82,
+  "total_slots": 122,
   "timetable_slots": 69,
   "goods_forecast_slots": 13,
+  "mega_blocks": 40,
   "by_section": {
-    "SEC-05": 15,
-    "SEC-01": 17,
-    "SEC-02": 15,
-    "SEC-03": 19,
-    "SEC-04": 16
+    "SEC-05": 23,
+    "SEC-01": 25,
+    "SEC-02": 23,
+    "SEC-03": 27,
+    "SEC-04": 24
   },
   "by_source": {
     "Timetable": 69,
-    "GoodsForecast": 13
+    "GoodsForecast": 13,
+    "MegaBlock": 40
   },
   "by_density": {
-    "High": 36,
-    "Medium": 33,
+    "High": 60,
+    "Medium": 49,
     "Low": 13
   },
-  "total_hours": 242.04,
+  "total_hours": 522.04,
   "week_start": "2026-09-07",
   "month_end": "2026-09-30"
 }

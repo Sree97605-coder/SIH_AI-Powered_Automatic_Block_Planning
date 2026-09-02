@@ -39,6 +39,7 @@ SLOT_FIELDS = [
     "is_night_window",
     "max_tasks_possible",
     "source",
+    "horizon",
 ]
 
 GOODS_FIELDS = [
@@ -70,6 +71,13 @@ DAY_SHADOW: dict[str, tuple[time, time]] = {
 }
 
 HIGH_DENSITY = {"SEC-01", "SEC-02", "SEC-05"}
+MEGA_BLOCK_TARGETS = {
+    "SEC-01": 6.0,
+    "SEC-02": 8.0,
+    "SEC-03": 7.0,
+    "SEC-04": 7.0,
+    "SEC-05": 7.0,
+}
 
 
 def _dt(day: date, clock: time) -> datetime:
@@ -246,8 +254,40 @@ def goods_forecast_slots(forecast: list[dict[str, Any]] | None = None) -> list[d
     return rows
 
 
+def mega_block_slots() -> list[dict[str, Any]]:
+    """Control Office mega-block windows that plug the structural capacity gap.
+
+    These windows represent negotiated extended possessions needed when a defect's
+    planned duration exceeds the normal night/day slot on a section. They are
+    deliberately added to the synthetic inventory so the model can distinguish
+    structural infeasibility from a true optimization failure.
+    """
+    rows: list[dict[str, Any]] = []
+    for day in _daterange(WEEK_START, MONTH_END):
+        for section_id, target_duration in MEGA_BLOCK_TARGETS.items():
+            if day <= WEEK_END:
+                if day.weekday() not in {1, 3, 5}:  # Tue / Thu / Sat
+                    continue
+            else:
+                if day.weekday() not in {2, 6}:  # Wed / Sun monthly
+                    continue
+
+            if section_id in {"SEC-03", "SEC-04"}:
+                if section_id == "SEC-03":
+                    start_t = DAY_SHADOW["SEC-03"][0]
+                else:
+                    start_t = DAY_SHADOW["SEC-04"][0]
+            else:
+                start_t = NIGHT_WINDOWS[section_id][0]
+
+            start = _dt(day, start_t)
+            end = start + timedelta(hours=target_duration)
+            rows.append(make_slot(section_id, start, end, "MegaBlock"))
+    return rows
+
+
 def all_slots() -> list[dict[str, Any]]:
-    combined = timetable_slots() + goods_forecast_slots()
+    combined = timetable_slots() + goods_forecast_slots() + mega_block_slots()
     combined.sort(key=lambda r: (r["start_datetime"], r["section_id"], r["slot_id"]))
     return combined
 
@@ -269,6 +309,7 @@ def write_all(data_dir: Path | None = None) -> dict[str, Any]:
     root = data_dir or DATA_DIR
     tt = [public_slot_row(r) for r in timetable_slots()]
     gf = [public_slot_row(r) for r in goods_forecast_slots()]
+    mega = [public_slot_row(r) for r in mega_block_slots()]
     combined = [public_slot_row(r) for r in all_slots()]
     write_csv(root / "timetable_slots.csv", tt, SLOT_FIELDS)
     write_csv(root / "goods_forecast_slots.csv", gf, SLOT_FIELDS)
@@ -278,6 +319,7 @@ def write_all(data_dir: Path | None = None) -> dict[str, Any]:
         "total_slots": len(combined),
         "timetable_slots": len(tt),
         "goods_forecast_slots": len(gf),
+        "mega_blocks": len(mega),
         "by_section": _count(combined, "section_id"),
         "by_source": _count(combined, "source"),
         "by_density": _count(combined, "traffic_density"),

@@ -35,7 +35,7 @@ class DataIntegrationTests(unittest.TestCase):
     def test_unify_datasets(self) -> None:
         """Test that all three core datasets load correctly."""
         self.assertEqual(len(self.integrator.defects_df), 52)
-        self.assertEqual(len(self.integrator.slots_df), 82)
+        self.assertEqual(len(self.integrator.slots_df), 122)
         self.assertGreaterEqual(len(self.integrator.goods_forecast_df), 10)
         self.assertEqual(len(self.integrator.corridor["block_sections"]), 5)
 
@@ -121,14 +121,14 @@ class DataIntegrationTests(unittest.TestCase):
         with paths["integrated_summary_json"].open("r", encoding="utf-8") as f:
             summary = json.load(f)
             self.assertEqual(summary["total_defects"], 52)
-            self.assertEqual(summary["total_block_slots"], 82)
+            self.assertEqual(summary["total_block_slots"], 122)
             self.assertEqual(summary["data_quality_status"], "PASS")
 
     def test_run_integration_convenience_function(self) -> None:
         """Test high-level run_integration function."""
         summary = run_integration()
         self.assertEqual(summary["total_defects"], 52)
-        self.assertEqual(summary["total_block_slots"], 82)
+        self.assertEqual(summary["total_block_slots"], 122)
         self.assertEqual(summary["data_quality_status"], "PASS")
 
 

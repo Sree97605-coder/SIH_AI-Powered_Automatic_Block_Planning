@@ -99,9 +99,10 @@ class BlockOptimizer:
             self.defects_df, _ = run_prioritization(self.data_dir)
 
         self.slots_df = load_block_slots(self.data_dir)
-        if "horizon" not in self.slots_df.columns:
-            self.slots_df["horizon"] = self.slots_df["start_datetime"].apply(
-                lambda dt: "weekly" if str(dt) <= "2026-09-13T23:59:59" else "monthly"
+        if "horizon" not in self.slots_df.columns or self.slots_df["horizon"].isna().any():
+            raise ValueError(
+                "slots_df is missing required 'horizon' column/values — "
+                "regenerate via generate_block_slots.py rather than inferring from dates"
             )
         return self
 
@@ -210,7 +211,11 @@ class BlockOptimizer:
             target_min_p2_pct = min_p2_clearance_pct        # Fix 3: 60% weekly
             target_min_slot_util_pct = min_slot_util_pct
         else:
-            slots_subset = self.slots_df.copy().reset_index(drop=True)
+            slots_subset = self.slots_df[self.slots_df["horizon"] == "monthly"].copy().reset_index(drop=True)
+            if slots_subset.empty:
+                raise ValueError(
+                    "No monthly slots available for the monthly horizon; regenerate block_slots.csv with explicit horizon values."
+                )
             target_min_p2_pct = 0.90                         # Fix 3: 90% monthly
             target_min_slot_util_pct = 0.30
 
@@ -295,9 +300,23 @@ class BlockOptimizer:
         min_slot_target = math.ceil(target_min_slot_util_pct * len(slots))
         prob += pulp.lpSum([y[s["slot_id"]] for s in slots]) >= min_slot_target
 
-        # ── Hard Constraint 4: Same-dept sequential duration cap ──────────────
-        # Fix 1 (corollary): when multiple defects of the SAME department are
-        # assigned to the same slot, their combined duration must not exceed the slot.
+        # ── Hard Constraint 4: Global per-slot duration cap ────────────────
+        # This is the actual root cause fix: no slot may ever absorb more defect
+        # duration than its available block time, regardless of department mix.
+        for s in slots:
+            s_id = s["slot_id"]
+            s_dur = float(s["duration_hours"])
+            slot_vars_dur = [
+                (x[(d["defect_id"], s_id)], float(d["estimated_duration_hours"]))
+                for d in defects
+                if (d["defect_id"], s_id) in x
+            ]
+            if slot_vars_dur:
+                prob += pulp.lpSum(dur * var for var, dur in slot_vars_dur) <= s_dur
+
+        # ── Hard Constraint 5: Same-dept sequential duration cap ─────────────
+        # This remains as a valid tightening constraint, but the global per-slot
+        # cap above is the essential enforcement preventing the overflow bug.
         for s in slots:
             s_id = s["slot_id"]
             s_dur = float(s["duration_hours"])
@@ -381,9 +400,18 @@ class BlockOptimizer:
         prob.solve(solver)
         solve_time = round(time.time() - start_time, 3)
 
+        status = pulp.LpStatus[prob.status]
+        if status != "Optimal":
+            raise RuntimeError(
+                f"MILP did not solve to optimality for horizon={horizon}; status={status}. "
+                "This indicates the current slot inventory is infeasible for the requested requirements, "
+                "and no schedule should be emitted."
+            )
+
         # ── Extract Results ───────────────────────────────────────────────────
         scheduled_slots: list[ScheduledSlot] = []
         assigned_defect_ids_set: set[str] = set()
+        slot_assignments: dict[str, list[str]] = {s["slot_id"]: [] for s in slots}
 
         for s in slots:
             s_id = s["slot_id"]
@@ -394,6 +422,12 @@ class BlockOptimizer:
                 if (d_id, s_id) in x and pulp.value(x[(d_id, s_id)]) is not None and pulp.value(x[(d_id, s_id)]) > 0.5:
                     assigned_d_list.append(d)
                     assigned_defect_ids_set.add(d_id)
+                    slot_assignments[s_id].append(d_id)
+
+            assert not any(
+                sum(float(defects_by_id[d_id]["estimated_duration_hours"]) for d_id in slot_assignments[s_id]) > s_dur + 1e-9
+                for s_id, s_dur in ((s["slot_id"], float(s["duration_hours"])) for s in slots)
+            ), "Solver produced an infeasible assignment — slot-duration constraint is not being applied correctly"
 
             if assigned_d_list:
                 d_ids = [d["defect_id"] for d in assigned_d_list]
