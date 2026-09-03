@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   TRACK SYNEX DESIGN TOKENS
+   Strict two-theme CSS variable architecture (Dark & Light)
+   ========================================================================== */
+
+:root,
+[data-theme="dark"],
+.dark {
+  /* Surface & Background Fills */
+  --bg-page: #05070C;
+  --bg-page-gradient: radial-gradient(circle at 50% 15%, rgba(30, 58, 138, 0.18) 0%, transparent 60%),
+                      radial-gradient(circle at 85% 45%, rgba(232, 163, 61, 0.12) 0%, transparent 50%);
+  --bg-surface: #0B1420;
+  --bg-card: rgba(11, 20, 32, 0.82);
+  --bg-card-subtle: rgba(15, 26, 42, 0.55);
+  --bg-card-hover: rgba(21, 35, 56, 0.85);
+  --bg-input: #070D16;
+  --bg-pill: rgba(255, 255, 255, 0.05);
+  --bg-pill-hover: rgba(255, 255, 255, 0.1);
+  --bg-departure: rgba(7, 13, 22, 0.9);
+  --bg-dropdown: #0B1420;
+
+  /* Typography Colors */
+  --text-heading: #F4F6F8;
+  --text-body: #9BAAB5;
+  --text-muted: #5C6D7A;
+  --text-inverse: #05070C;
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.15);
+  --border-strong: rgba(255, 255, 255, 0.28);
+  --border-highlight: rgba(232, 163, 61, 0.45);
+
+  /* Accents & Status */
+  --accent-amber: #E8A33D;
+  --accent-amber-light: #F4C766;
+  --accent-amber-bg: rgba(232, 163, 61, 0.15);
+  --accent-amber-border: rgba(232, 163, 61, 0.35);
+
+  --accent-green: #2E8B57;
+  --accent-green-light: #3DAB6E;
+  --accent-green-bg: rgba(46, 139, 87, 0.15);
+  --accent-green-border: rgba(46, 139, 87, 0.35);
+
+  --accent-steel: #3E6C8A;
+  --accent-steel-light: #5C8FA8;
+  --accent-steel-bg: rgba(62, 108, 138, 0.18);
+  --accent-steel-border: rgba(62, 108, 138, 0.35);
+
+  --accent-red: #C1443C;
+  --accent-red-light: #E56057;
+  --accent-red-bg: rgba(193, 68, 60, 0.15);
+  --accent-red-border: rgba(193, 68, 60, 0.35);
+
+  /* Shadows & Glows */
+  --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 20px 40px -10px rgba(0, 0, 0, 0.7);
+  --shadow-glow-amber: 0 0 25px rgba(232, 163, 61, 0.35);
+  --shadow-glow-green: 0 0 25px rgba(46, 139, 87, 0.35);
+  --shadow-glow-steel: 0 0 25px rgba(62, 108, 138, 0.35);
+
+  /* Glass backdrop */
+  --backdrop-blur: blur(20px);
+}
+
+[data-theme="light"],
+.light {
+  /* Surface & Background Fills (Rich Multi-Tone Railway Palette) */
+  --bg-page: #DFE8F2;
+  --bg-page-gradient: radial-gradient(ellipse at 85% 8%, rgba(217, 119, 6, 0.16) 0%, transparent 45%),
+                      radial-gradient(ellipse at 15% 35%, rgba(37, 99, 235, 0.15) 0%, transparent 50%),
+                      radial-gradient(ellipse at 75% 70%, rgba(22, 163, 74, 0.12) 0%, transparent 45%),
+                      radial-gradient(ellipse at 25% 90%, rgba(217, 119, 6, 0.10) 0%, transparent 45%);
+  --bg-surface: #FFFFFF;
+  --bg-card: rgba(255, 255, 255, 0.96);
+  --bg-card-subtle: #D5E1ED;
+  --bg-card-hover: #CBDCEB;
+  --bg-input: #FFFFFF;
+  --bg-pill: rgba(29, 78, 216, 0.08);
+  --bg-pill-hover: rgba(29, 78, 216, 0.14);
+  --bg-departure: #FFFFFF;
+  --bg-dropdown: #FFFFFF;
+
+  /* Typography Colors */
+  --text-heading: #081628;
+  --text-body: #1E3146;
+  --text-muted: #4F6478;
+  --text-inverse: #FFFFFF;
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(15, 30, 54, 0.12);
+  --border-medium: rgba(15, 30, 54, 0.22);
+  --border-strong: rgba(15, 30, 54, 0.36);
+  --border-highlight: rgba(180, 83, 9, 0.55);
+
+  /* Accents & Status (Vibrant, high-contrast railway hues) */
+  --accent-amber: #B45309;
+  --accent-amber-light: #D97706;
+  --accent-amber-bg: rgba(217, 119, 6, 0.14);
+  --accent-amber-border: rgba(180, 83, 9, 0.38);
+
+  --accent-green: #15803D;
+  --accent-green-light: #16A34A;
+  --accent-green-bg: rgba(22, 163, 74, 0.14);
+  --accent-green-border: rgba(21, 128, 61, 0.38);
+
+  --accent-steel: #1D4ED8;
+  --accent-steel-light: #2563EB;
+  --accent-steel-bg: rgba(37, 99, 235, 0.14);
+  --accent-steel-border: rgba(29, 78, 216, 0.38);
+
+  --accent-red: #B91C1C;
+  --accent-red-light: #DC2626;
+  --accent-red-bg: rgba(220, 38, 38, 0.14);
+  --accent-red-border: rgba(185, 28, 28, 0.38);
+
+  /* Layered Soft Shadows for Light Mode */
+  --shadow-card: 0 12px 28px -4px rgba(15, 30, 54, 0.10), 0 4px 12px -2px rgba(180, 83, 9, 0.05), 0 0 0 1px rgba(15, 30, 54, 0.08);
+  --shadow-elevated: 0 24px 44px -8px rgba(15, 30, 54, 0.15), 0 10px 20px -4px rgba(180, 83, 9, 0.08), 0 0 0 1px rgba(15, 30, 54, 0.1);
+  --shadow-glow-amber: 0 6px 22px rgba(180, 83, 9, 0.28);
+  --shadow-glow-green: 0 6px 22px rgba(21, 128, 61, 0.28);
+  --shadow-glow-steel: 0 6px 22px rgba(29, 78, 216, 0.28);
+
+  /* Glass backdrop */
+  --backdrop-blur: blur(16px);
+}
+
+/* ==========================================================================
+   GLOBAL BASE STYLES
+   ========================================================================== */
+
+body {
+  background-color: var(--bg-page);
+  background-image: var(--bg-page-gradient);
+  background-attachment: fixed;
+  color: var(--text-body);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ==========================================================================
+   UNIVERSAL THEMED GLASS & CARD UTILITIES
+   ========================================================================== */
+
+.glass-card {
+  background-color: var(--bg-card);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  color: var(--text-body);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card-elevated {
+  background-color: var(--bg-card);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  border: 1px solid var(--border-medium);
+  box-shadow: var(--shadow-elevated);
+  color: var(--text-body);
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
+  color: var(--text-body);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Flip-Digit Departure Board */
+.departure-digit {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  background-color: var(--bg-departure);
+  color: var(--accent-amber);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Liquid progress meter animation */
+@keyframes liquidFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.liquid-meter-fill {
+  background-size: 200% 200%;
+  animation: liquidFlow 4s ease infinite;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-page);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-amber);
+}
+
+/* Track Line Gradient */
+.track-glow-line {
+  background: linear-gradient(90deg, 
+    var(--accent-amber) 0%, 
+    var(--accent-steel) 50%, 
+    var(--accent-green) 100%
+  );
+}

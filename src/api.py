@@ -14,17 +14,30 @@ if str(PROJECT_ROOT) not in sys.path:
 from baseline_and_metrics import compare_plans, fifo_baseline, severity_baseline
 from src.feasibility_utils import classify_unscheduled
 
+from fastapi.middleware.cors import CORSMiddleware
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 OPTIMIZED_DIR = DATA_DIR / "optimized"
 
 app = FastAPI(title="Rail Block Planning API", version="1.0.0")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def _read_csv(path: Path) -> pd.DataFrame:
-    if not path.exists():
+    if not path.exists() or path.stat().st_size == 0:
         return pd.DataFrame()
-    return pd.read_csv(path)
+    try:
+        return pd.read_csv(path)
+    except Exception:
+        return pd.DataFrame()
 
 
 def _clean_frame(df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -163,7 +176,29 @@ def get_comparison() -> dict[str, list[dict[str, Any]]]:
     return output
 
 
+# Serve compiled React frontend assets when dist/ exists
+DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
+if DIST_DIR.exists():
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+
+    assets_dir = DIST_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Don't intercept API routes
+        if full_path.startswith("api/") or full_path in ["health", "defects", "slots", "schedules", "comparison", "unscheduled", "docs", "openapi.json", "redoc"]:
+            return None
+        file_path = DIST_DIR / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(DIST_DIR / "index.html")
+
+
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("src.api:app", host="0.0.0.0", port=8000, reload=False)
+
