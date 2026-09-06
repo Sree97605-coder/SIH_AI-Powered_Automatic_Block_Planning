@@ -70,7 +70,7 @@ export const ComparisonSection: React.FC<ComparisonSectionProps> = ({
             onClick={() => setHorizon('weekly')}
             className={`px-5 py-2 rounded-full text-xs font-mono font-bold transition-all duration-300 cursor-pointer ${
               horizon === 'weekly'
-                ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)]'
+                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
             }`}
           >
@@ -80,7 +80,7 @@ export const ComparisonSection: React.FC<ComparisonSectionProps> = ({
             onClick={() => setHorizon('monthly')}
             className={`px-5 py-2 rounded-full text-xs font-mono font-bold transition-all duration-300 cursor-pointer ${
               horizon === 'monthly'
-                ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)]'
+                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
             }`}
           >

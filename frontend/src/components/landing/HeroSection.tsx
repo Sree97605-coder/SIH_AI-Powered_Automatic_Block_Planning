@@ -75,7 +75,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           >
             <button
               onClick={onEnterDashboard}
-              className="flex items-center gap-3 bg-[var(--accent-amber)] hover:opacity-90 text-sm font-bold text-white dark:text-[#05070C] px-7 py-3.5 rounded-full shadow-[var(--shadow-glow-amber)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              className="flex items-center gap-3 bg-[var(--accent-amber)] hover:opacity-90 text-sm font-bold text-[var(--text-inverse)] px-7 py-3.5 rounded-full shadow-[var(--shadow-glow-amber)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
             >
               <span>Explore Live Plan</span>
               <ArrowRight className="w-4 h-4" />

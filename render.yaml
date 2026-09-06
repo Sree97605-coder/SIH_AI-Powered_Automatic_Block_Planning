@@ -1,9 +1,45 @@
+# render.yaml — Track Synex (SIH26027) Single-Service Deployment
+#
+# Architecture: ONE Render web service.
+# - Build step: pip-installs Python deps, then compiles the React frontend into
+#   frontend/dist/ via Vite.
+# - Start: uvicorn runs FastAPI, which serves the React SPA from frontend/dist/
+#   via the StaticFiles + catch-all handler already in src/api.py.
+# - No CORS issues: frontend and API share the same Render URL (same origin).
+# - No database: all data is flat CSV files committed to the repo under data/.
+
 services:
   - type: web
     name: tracksynex-rail-optimizer
-    env: python
-    buildCommand: "pip install -r requirements.txt && cd frontend && npm install && npm run build && cd .."
-    startCommand: "python -m uvicorn src.api:app --host 0.0.0.0 --port $PORT"
+    runtime: python
+    region: singapore           # closest to Prayagraj Division geography
+    plan: free
+
+    # Build: install Python deps, then compile React → frontend/dist/
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      cd frontend &&
+      npm ci &&
+      npm run build &&
+      cd ..
+
+    # Start: uvicorn picks up $PORT injected by Render
+    startCommand: uvicorn src.api:app --host 0.0.0.0 --port $PORT
+
+    # Health check — Render uses this to confirm the service is live before routing traffic
+    healthCheckPath: /health
+
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: "3.11.0"
+
+      # VITE_API_URL is intentionally NOT set here.
+      # Empty (unset) → client.ts falls back to '' (same-origin) → fetches
+      # /health, /defects, /slots, etc. directly on the same Render URL.
+      # Only set this if you ever split frontend and backend into two services.
+
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+
+      - key: PYTHONUNBUFFERED
+        value: "1"

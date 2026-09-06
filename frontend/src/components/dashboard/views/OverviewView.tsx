@@ -63,7 +63,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={() => onNavigateTab(horizon === 'weekly' ? 'weekly' : 'monthly')}
-              className="px-5 py-2.5 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-xs font-mono font-bold text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)] transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-xs font-mono font-bold text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)] transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span>View Full {horizon.toUpperCase()} Schedule</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -236,7 +236,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               onClick={() => onSelectSectionFilter && onSelectSectionFilter('ALL')}
               className={`px-3 py-1 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
                 selectedSectionFilter === 'ALL'
-                  ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] font-bold shadow-[var(--shadow-glow-amber)]'
+                  ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold shadow-[var(--shadow-glow-amber)]'
                   : 'bg-[var(--bg-pill)] text-[var(--text-body)] hover:text-[var(--text-heading)]'
               }`}
             >

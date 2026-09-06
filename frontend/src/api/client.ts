@@ -11,7 +11,9 @@ import {
   UNSCHEDULED_MONTHLY_CONTENTION,
 } from '../config/constants';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Empty string = same-origin (production single-service on Render).
+// Override with VITE_API_URL only when running frontend against a separate backend.
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 export class ApiError extends Error {
   status?: number;

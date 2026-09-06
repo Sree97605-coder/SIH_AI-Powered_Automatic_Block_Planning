@@ -6,6 +6,7 @@ import { CorridorOverviewSection } from './components/landing/CorridorOverviewSe
 import { ComparisonSection } from './components/landing/ComparisonSection';
 import { UnscheduledSection } from './components/landing/UnscheduledSection';
 import { LandingFooter } from './components/landing/LandingFooter';
+import { HowItDecidesSection } from './components/landing/HowItDecidesSection';
 import { DemoTourModal } from './components/landing/DemoTourModal';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { TrainIntroAnimation } from './components/common/TrainIntroAnimation';
@@ -60,7 +61,10 @@ const MainAppContent: React.FC = () => {
       {/* 4. Unscheduled Classification Board */}
       <UnscheduledSection />
 
-      {/* 5. Landing Footer */}
+      {/* 5. How It Decides — Hybrid Rule + ML Logic (brief, plain-language) */}
+      <HowItDecidesSection />
+
+      {/* 6. Landing Footer */}
       <LandingFooter
         onEnterDashboard={() => {
           setCurrentView('dashboard');

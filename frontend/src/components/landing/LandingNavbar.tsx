@@ -106,7 +106,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
           {/* Primary CTA: View Live Plan / Enter Dashboard */}
           <button
             onClick={onEnterDashboard}
-            className="flex items-center gap-2 bg-[var(--accent-amber)] hover:opacity-90 text-xs font-bold text-white dark:text-[#05070C] px-4 sm:px-5 py-2.5 rounded-full shadow-[var(--shadow-glow-amber)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+            className="flex items-center gap-2 bg-[var(--accent-amber)] hover:opacity-90 text-xs font-bold text-[var(--text-inverse)] px-4 sm:px-5 py-2.5 rounded-full shadow-[var(--shadow-glow-amber)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
           >
             <span>Enter Dashboard</span>
             <ArrowRight className="w-3.5 h-3.5" />

@@ -24,10 +24,18 @@ app = FastAPI(title="Rail Block Planning API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # In production (single Render service) frontend and backend share the same
+    # origin — CORS is never triggered. These origins only matter for local dev
+    # (Vite dev server on :5173 hitting uvicorn on :8000).
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["Accept"],
 )
 
 

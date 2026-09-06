@@ -41,7 +41,7 @@ export const LandingFooter: React.FC<LandingFooterProps> = ({ onEnterDashboard }
         <div className="flex items-center gap-4">
           <button
             onClick={onEnterDashboard}
-            className="px-6 py-2.5 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-white dark:text-[#05070C] font-bold text-xs shadow-[var(--shadow-glow-amber)] transition-all cursor-pointer"
+            className="px-6 py-2.5 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-[var(--text-inverse)] font-bold text-xs shadow-[var(--shadow-glow-amber)] transition-all cursor-pointer"
           >
             Launch Schedule Dashboard
           </button>

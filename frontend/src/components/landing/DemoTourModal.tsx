@@ -156,7 +156,7 @@ export const DemoTourModal: React.FC<DemoTourModalProps> = ({
               {currentSlide < slides.length - 1 ? (
                 <button
                   onClick={() => setCurrentSlide(prev => prev + 1)}
-                  className="px-4 py-2 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-xs font-mono font-bold text-white dark:text-[#05070C] flex items-center gap-1 transition-colors shadow-[var(--shadow-glow-amber)] cursor-pointer"
+                  className="px-4 py-2 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-xs font-mono font-bold text-[var(--text-inverse)] flex items-center gap-1 transition-colors shadow-[var(--shadow-glow-amber)] cursor-pointer"
                 >
                   Next
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -167,7 +167,7 @@ export const DemoTourModal: React.FC<DemoTourModalProps> = ({
                     onClose();
                     onEnterDashboard();
                   }}
-                  className="px-5 py-2 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-xs font-mono font-bold text-white dark:text-[#05070C] flex items-center gap-1 transition-all shadow-[var(--shadow-glow-amber)] cursor-pointer"
+                  className="px-5 py-2 rounded-full bg-[var(--accent-amber)] hover:opacity-90 text-xs font-mono font-bold text-[var(--text-inverse)] flex items-center gap-1 transition-all shadow-[var(--shadow-glow-amber)] cursor-pointer"
                 >
                   Enter Live Dashboard →
                 </button>

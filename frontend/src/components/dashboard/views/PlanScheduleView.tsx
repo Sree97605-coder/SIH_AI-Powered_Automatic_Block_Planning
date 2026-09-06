@@ -208,7 +208,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
             onClick={() => setViewMode('control')}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
               viewMode === 'control'
-                ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)]'
+                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
             }`}
           >
@@ -219,7 +219,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
             onClick={() => setViewMode('engineer')}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
               viewMode === 'engineer'
-                ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)]'
+                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
             }`}
           >
@@ -382,7 +382,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                 onClick={() => setStatusFilter(st)}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   statusFilter === st
-                    ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] font-bold'
+                    ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
                 }`}
               >
@@ -398,7 +398,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                 onClick={() => setUrgencyFilter(urg)}
                 className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
                   urgencyFilter === urg
-                    ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] font-bold'
+                    ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
                 }`}
               >

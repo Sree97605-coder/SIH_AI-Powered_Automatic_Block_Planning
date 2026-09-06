@@ -92,7 +92,7 @@ export const UnscheduledSection: React.FC = () => {
                 onClick={() => setSelectedDept(dept)}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   selectedDept === dept
-                    ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] font-bold'
+                    ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
                 }`}
               >

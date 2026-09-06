@@ -8,9 +8,9 @@ export const HowItDecidesSection: React.FC = () => {
       num: '01',
       title: 'Hard Safety Rules First',
       badge: 'Deterministic Safety',
-      badgeColor: 'text-[#2E8B57] bg-[#2E8B57]/15 border-[#2E8B57]/30',
+      badgeColor: 'text-[var(--accent-green)] bg-[var(--accent-green-bg)] border-[var(--accent-green-border)]',
       icon: ShieldCheck,
-      iconColor: 'text-[#2E8B57]',
+      iconColor: 'text-[var(--accent-green)]',
       desc: 'All defect orders are first classified into strict safety urgency bands (P1 Immediate to P4 Routine). Hard safety rules can never be downgraded or overridden by the AI.',
       points: ['P1 rail fractures must be scheduled in next available block', 'Zero safety compromise policy', 'Physical track & machine duration limits strictly enforced'],
     },
@@ -18,9 +18,9 @@ export const HowItDecidesSection: React.FC = () => {
       num: '02',
       title: 'ML Fine-Grained Risk Ranking',
       badge: 'RandomForest Regressor',
-      badgeColor: 'text-[#F4C766] bg-[#E8A33D]/15 border-[#E8A33D]/30',
+      badgeColor: 'text-[var(--accent-amber-light)] bg-[var(--accent-amber-bg)] border-[var(--accent-amber-border)]',
       icon: Cpu,
-      iconColor: 'text-[#F4C766]',
+      iconColor: 'text-[var(--accent-amber-light)]',
       desc: 'Within each safety band, a trained machine learning model evaluates asset degradation, traffic density, and overdue aging to prioritize the most critical work items.',
       points: ['Ranks items within the same urgency band', 'Learns from historical track maintenance data', 'Transparent feature-importance scores for every defect'],
     },
@@ -28,9 +28,9 @@ export const HowItDecidesSection: React.FC = () => {
       num: '03',
       title: 'Multi-Department Bundling Solver',
       badge: 'Integer Linear Programming',
-      badgeColor: 'text-[#5C8FA8] bg-[#3E6C8A]/15 border-[#3E6C8A]/30',
+      badgeColor: 'text-[var(--accent-steel-light)] bg-[var(--accent-steel-bg)] border-[var(--accent-steel-border)]',
       icon: Layers,
-      iconColor: 'text-[#5C8FA8]',
+      iconColor: 'text-[var(--accent-steel-light)]',
       desc: 'The mathematical solver schedules co-located maintenance simultaneously — letting Track, Signals (S&T), and Overhead Electrical (TRD) teams share the same power shadow block.',
       points: ['Avoids shutting down track multiple times for same section', 'Boosts corridor operational throughput by +23.3%', 'Eliminates departmental scheduling silos'],
     },
@@ -41,14 +41,14 @@ export const HowItDecidesSection: React.FC = () => {
       
       {/* Section Header */}
       <div className="flex flex-col items-center text-center mb-16">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#3E6C8A]/15 border border-[#3E6C8A]/30 text-xs font-mono text-[#5C8FA8] mb-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-steel-bg)] border border-[var(--accent-steel-border)] text-xs font-mono text-[var(--accent-steel)] mb-3 font-semibold">
           <Cpu className="w-3.5 h-3.5" />
           <span>ALGORITHMIC TRANSPARENCY</span>
         </div>
-        <h2 className="font-display font-bold text-2xl sm:text-3xl text-[#F4F6F8] tracking-tight max-w-2xl">
+        <h2 className="font-display font-bold text-2xl sm:text-3xl text-[var(--text-heading)] tracking-tight max-w-2xl">
           How the Hybrid Optimizer Decides
         </h2>
-        <p className="text-sm text-[#9BAAB5] mt-2 max-w-xl">
+        <p className="text-sm text-[var(--text-body)] mt-2 max-w-xl">
           A safety-first architecture combining deterministic Indian Railways engineering codes with machine learning optimization.
         </p>
       </div>
@@ -64,11 +64,11 @@ export const HowItDecidesSection: React.FC = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.45, delay: idx * 0.12 }}
-              className="glass-card-elevated rounded-3xl p-8 border border-white/12 shadow-glass flex flex-col justify-between relative group hover:border-[#E8A33D]/40 transition-colors"
+              className="glass-card-elevated rounded-3xl p-8 border border-[var(--border-subtle)] flex flex-col justify-between relative group hover:border-[var(--border-highlight)] transition-colors"
             >
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <span className="font-mono text-3xl font-black text-white/20 group-hover:text-[#E8A33D]/40 transition-colors">
+                  <span className="font-mono text-3xl font-black text-[var(--border-medium)] group-hover:text-[var(--accent-amber-border)] transition-colors">
                     {step.num}
                   </span>
                   <span className={`text-[10px] font-mono px-2.5 py-1 rounded-full border ${step.badgeColor}`}>
@@ -76,24 +76,24 @@ export const HowItDecidesSection: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="w-12 h-12 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center mb-5">
+                <div className="w-12 h-12 rounded-2xl bg-[var(--bg-card-subtle)] border border-[var(--border-subtle)] flex items-center justify-center mb-5">
                   <Icon className={`w-6 h-6 ${step.iconColor}`} />
                 </div>
 
-                <h3 className="font-display font-bold text-lg text-[#F4F6F8] mb-2">
+                <h3 className="font-display font-bold text-lg text-[var(--text-heading)] mb-2">
                   {step.title}
                 </h3>
 
-                <p className="text-xs sm:text-sm text-[#9BAAB5] leading-relaxed mb-6">
+                <p className="text-xs sm:text-sm text-[var(--text-body)] leading-relaxed mb-6">
                   {step.desc}
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-white/8 space-y-2">
+              <div className="pt-4 border-t border-[var(--border-subtle)] space-y-2">
                 {step.points.map((pt, pIdx) => (
-                  <div key={pIdx} className="flex items-start gap-2 text-xs text-[#F4F6F8]">
-                    <Check className="w-3.5 h-3.5 text-[#2E8B57] shrink-0 mt-0.5" />
-                    <span className="text-[#9BAAB5]">{pt}</span>
+                  <div key={pIdx} className="flex items-start gap-2 text-xs text-[var(--text-heading)]">
+                    <Check className="w-3.5 h-3.5 text-[var(--accent-green)] shrink-0 mt-0.5" />
+                    <span className="text-[var(--text-body)]">{pt}</span>
                   </div>
                 ))}
               </div>

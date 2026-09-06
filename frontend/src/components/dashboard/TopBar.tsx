@@ -89,7 +89,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={() => onHorizonChange('weekly')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
               horizon === 'weekly'
-                ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)]'
+                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
             }`}
           >
@@ -99,7 +99,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             onClick={() => onHorizonChange('monthly')}
             className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
               horizon === 'monthly'
-                ? 'bg-[var(--accent-amber)] text-white dark:text-[#05070C] shadow-[var(--shadow-glow-amber)]'
+                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
             }`}
           >
