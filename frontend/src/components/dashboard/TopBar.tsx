@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Shield, User, Calendar, Zap, Radio, Sun, Moon } from 'lucide-react';
 import { HorizonType, PerspectiveType } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
@@ -23,6 +23,28 @@ export const TopBar: React.FC<TopBarProps> = ({
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const isOptimal = solverStatus.toLowerCase() === 'optimal';
+  const [isPerspectiveMenuOpen, setIsPerspectiveMenuOpen] = useState(false);
+  const perspectiveMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handlePointerDownOutside = (event: PointerEvent) => {
+      if (!perspectiveMenuRef.current?.contains(event.target as Node)) {
+        setIsPerspectiveMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPerspectiveMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDownOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDownOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   // PERSPECTIVE SWITCHER:
   // Presentation-layer data lens filter across all railway departments
@@ -108,8 +130,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         {/* Perspective Switcher Dropdown (With OHE & SSMT Support) */}
-        <div className="relative group">
-          <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-highlight)] px-3.5 py-1.5 rounded-full cursor-pointer transition-all shadow-[var(--shadow-card)]">
+        <div className="relative" ref={perspectiveMenuRef}>
+          <button
+            type="button"
+            onClick={() => setIsPerspectiveMenuOpen((isOpen) => !isOpen)}
+            aria-expanded={isPerspectiveMenuOpen}
+            aria-haspopup="menu"
+            className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-highlight)] px-3.5 py-1.5 rounded-full cursor-pointer transition-all shadow-[var(--shadow-card)]"
+          >
             <CurrentIcon className="w-3.5 h-3.5 text-[var(--accent-amber)]" />
             <div className="flex flex-col text-left">
               <span className="text-[9px] text-[var(--text-muted)] -mb-0.5 leading-none">View as:</span>
@@ -117,11 +145,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                 {perspectiveLabels[perspective]?.title || 'Division Overview'}
               </span>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-[var(--text-muted)] ml-1 group-hover:rotate-180 transition-transform" />
-          </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-[var(--text-muted)] ml-1 transition-transform ${isPerspectiveMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
 
           {/* Dropdown Menu */}
-          <div className="absolute right-0 mt-2 w-72 glass-card-elevated rounded-2xl p-2 border border-[var(--border-medium)] shadow-2xl bg-[var(--bg-dropdown)] backdrop-blur-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+          <div
+            role="menu"
+            aria-hidden={!isPerspectiveMenuOpen}
+            className={`absolute right-0 mt-2 w-72 glass-card-elevated rounded-2xl p-2 border border-[var(--border-medium)] shadow-2xl bg-[var(--bg-dropdown)] backdrop-blur-2xl transition-all duration-200 z-50 ${isPerspectiveMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}
+          >
             <div className="px-3 py-1.5 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider border-b border-[var(--border-subtle)] mb-1 font-semibold">
               Select Department Perspective
             </div>
@@ -132,7 +164,12 @@ export const TopBar: React.FC<TopBarProps> = ({
               return (
                 <button
                   key={pKey}
-                  onClick={() => onPerspectiveChange(pKey)}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    onPerspectiveChange(pKey);
+                    setIsPerspectiveMenuOpen(false);
+                  }}
                   className={`w-full flex items-start gap-2.5 p-2.5 rounded-xl text-left transition-colors cursor-pointer ${
                     isSelected
                       ? 'bg-[var(--accent-amber-bg)] text-[var(--text-heading)] border border-[var(--accent-amber-border)]'
