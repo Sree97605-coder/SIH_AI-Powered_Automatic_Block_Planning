@@ -349,6 +349,8 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
           <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            id="plan-schedule-search"
+            name="schedule-search"
             placeholder="Search slot ID, defect ID (e.g. TDMS-002, SMMS-001, TMS-001)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -358,8 +360,10 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
 
         {/* Section Filter */}
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[var(--text-muted)]">Section:</span>
+          <label htmlFor="schedule-section-filter" className="text-[var(--text-muted)]">Section:</label>
           <select
+            id="schedule-section-filter"
+            name="section-filter"
             value={selectedSectionFilter}
             onChange={(e) => onSelectSectionFilter && onSelectSectionFilter(e.target.value)}
             className="bg-[var(--bg-input)] text-[var(--text-heading)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] focus:border-[var(--accent-amber)] focus:outline-none cursor-pointer"

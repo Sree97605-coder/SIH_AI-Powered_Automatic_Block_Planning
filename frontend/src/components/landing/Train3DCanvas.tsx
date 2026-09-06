@@ -29,7 +29,7 @@ export const Train3DCanvas: React.FC = () => {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = isLight ? 1.6 : 1.2;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
 
     containerRef.current.appendChild(renderer.domElement);
 
@@ -255,7 +255,8 @@ export const Train3DCanvas: React.FC = () => {
 
     // 6. Animation Loop
     let trainProgress = 0.2;
-    let clock = new THREE.Clock();
+    const timer = new THREE.Timer();
+    timer.connect(document);
     let frameId: number;
 
     // Mouse Parallax Interaction
@@ -270,9 +271,10 @@ export const Train3DCanvas: React.FC = () => {
 
     window.addEventListener('mousemove', handleMouseMove);
 
-    const animate = () => {
+    const animate = (timestamp: number) => {
       frameId = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      timer.update(timestamp);
+      const delta = timer.getDelta();
 
       // Move train smoothly along track ribbon
       trainProgress = (trainProgress + delta * 0.08) % 1.0;
@@ -294,7 +296,7 @@ export const Train3DCanvas: React.FC = () => {
       renderer.render(scene, camera);
     };
 
-    animate();
+    frameId = requestAnimationFrame(animate);
 
     // 7. Resize Handler
     const handleResize = () => {
@@ -310,6 +312,7 @@ export const Train3DCanvas: React.FC = () => {
 
     return () => {
       cancelAnimationFrame(frameId);
+      timer.dispose();
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
