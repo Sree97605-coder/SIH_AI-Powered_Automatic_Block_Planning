@@ -82,6 +82,31 @@ export interface PlanComparisonRow {
   bundling_rate_pct: number;
 }
 
+export interface OverridePreviewResponse {
+  feasible: boolean;
+  reason?: string | null;
+  available_hours: number;
+  required_hours: number;
+  newly_deferred: string[];
+  newly_cleared: string[];
+  priority_alert: boolean;
+  metrics_before: Record<string, number>;
+  metrics_after?: Record<string, number> | null;
+  original_slot_id?: string | null;
+  target_slot_id?: string | null;
+  horizon?: HorizonType;
+  defect_id?: string;
+}
+
+export interface OverrideConfirmResponse {
+  message: string;
+  horizon: HorizonType;
+  defect_id: string;
+  target_slot_id: string;
+  schedule: ScheduledSlot[];
+  unscheduled: UnscheduledDefect[];
+}
+
 export interface ComparisonResponse {
   weekly: PlanComparisonRow[];
   monthly: PlanComparisonRow[];

@@ -25,6 +25,34 @@ The repository includes a pre-configured `render.yaml`:
 3. Render will automatically detect `render.yaml`, build the React frontend, and launch the FastAPI server.
 4. Click **Apply**. Both your UI and API will run on the same public `*.onrender.com` domain!
 
+### Optional hosted MySQL database
+
+The API supports MySQL as its primary data source and automatically falls back to the committed CSV files if MySQL is not configured or temporarily unavailable.
+
+1. Create a hosted MySQL database with a provider such as Railway or Aiven. A MySQL server running only on your laptop cannot be reached by Render.
+2. Add these environment variables to the Render web service:
+
+```text
+MYSQL_HOST=your-host
+MYSQL_PORT=3306
+MYSQL_DATABASE=your-database
+MYSQL_USER=your-user
+MYSQL_PASSWORD=your-password
+```
+
+3. From a machine with network access to the hosted database, run the import script from the repository root:
+
+```powershell
+$env:MYSQL_HOST = "your-host"
+$env:MYSQL_PORT = "3306"
+$env:MYSQL_DATABASE = "your-database"
+$env:MYSQL_USER = "your-user"
+$env:MYSQL_PASSWORD = "your-password"
+python scripts/import_csv_to_mysql.py
+```
+
+The importer creates the six `rail_*` tables and loads the existing defects, slots, schedules, and unscheduled records. Never commit database passwords or put them in frontend `VITE_*` variables.
+
 ---
 
 ## ⚡ Option 3: Deploy on Railway / Fly.io (Containerized Docker)

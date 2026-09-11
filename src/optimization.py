@@ -191,6 +191,7 @@ class BlockOptimizer:
         # Fix 3 — realistic P2 targets
         min_slot_util_pct: float = 0.50,
         min_p2_clearance_pct: float = 0.60,
+        pinned_assignments: dict[str, str] | None = None,
     ) -> tuple[list[ScheduledSlot], pd.DataFrame, dict[str, Any]]:
         """Formulate and solve MILP optimization for a given planning horizon.
 
@@ -247,11 +248,22 @@ class BlockOptimizer:
                 s_sec = s["section_id"]
                 s_dur = float(s["duration_hours"])
 
+                var_name = f"assign_{d_id}_{s_id}".replace("-", "_")
+                x[(d_id, s_id)] = pulp.LpVariable(var_name, cat=pulp.LpBinary)
+
                 # Fix 1: strict duration gate — actual duration must fit
                 if d_sec == s_sec and s_dur >= d_dur:
-                    var_name = f"assign_{d_id}_{s_id}".replace("-", "_")
-                    x[(d_id, s_id)] = pulp.LpVariable(var_name, cat=pulp.LpBinary)
                     candidate_pairs.append((d, s))
+                else:
+                    prob += x[(d_id, s_id)] == 0
+
+        pinned_assignments = dict(pinned_assignments or {})
+        for defect_id, slot_id in pinned_assignments.items():
+            if (defect_id, slot_id) not in x:
+                x[(defect_id, slot_id)] = pulp.LpVariable(
+                    f"assign_{defect_id}_{slot_id}".replace("-", "_"), cat=pulp.LpBinary
+                )
+            prob += x[(defect_id, slot_id)] == 1
 
         # ── Defect scheduled indicator variable u[d_id] ──────────────────────
         u: dict[str, pulp.LpVariable] = {}
@@ -673,6 +685,20 @@ class BlockOptimizer:
                 },
             },
         }
+
+
+def optimize_schedule(
+    data_dir: Path | None = None,
+    horizon: str = "weekly",
+    pinned_assignments: dict[str, str] | None = None,
+) -> tuple[list[ScheduledSlot], pd.DataFrame, dict[str, Any]]:
+    """Run the existing optimization for a single horizon with optional pinned assignments."""
+    optimizer = BlockOptimizer(data_dir=data_dir)
+    optimizer.load_data()
+    return optimizer.build_and_solve_milp(
+        horizon=horizon,
+        pinned_assignments=pinned_assignments,
+    )
 
 
 def optimize_blocks(data_dir: Path | None = None) -> tuple[list[ScheduledSlot], list[ScheduledSlot], dict[str, Any]]:

@@ -147,6 +147,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
       <DefectExplainModal
         defect={selectedDefect}
         onClose={() => setSelectedDefect(null)}
+        horizon={horizon}
+        schedule={rawSchedule}
+        slots={rawSlots}
       />
 
       {/* Dev Mode Assertion Cross-Check Panel */}

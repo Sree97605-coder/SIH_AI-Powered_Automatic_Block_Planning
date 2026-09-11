@@ -5,6 +5,8 @@ import {
   ScheduledSlot,
   UnscheduledDefect,
   HorizonType,
+  OverridePreviewResponse,
+  OverrideConfirmResponse,
 } from '../types';
 import {
   VERIFIED_BENCHMARKS,
@@ -31,11 +33,25 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       ...options,
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         ...options?.headers,
       },
     });
 
     if (!res.ok) {
+      const contentType = res.headers.get('content-type') ?? '';
+      if (contentType.includes('application/json')) {
+        const errorPayload = await res.json().catch(() => null);
+        if (errorPayload && typeof errorPayload === 'object') {
+          const detail = (errorPayload as { detail?: string | unknown }).detail;
+          if (typeof detail === 'string') {
+            throw new ApiError(detail, res.status);
+          }
+          if (detail && typeof detail === 'object') {
+            throw new ApiError(JSON.stringify(detail), res.status);
+          }
+        }
+      }
       throw new ApiError(`HTTP ${res.status}: ${res.statusText}`, res.status);
     }
 
@@ -121,5 +137,30 @@ export const api = {
     } catch {
       return horizon === 'monthly' ? UNSCHEDULED_MONTHLY_CONTENTION : [];
     }
+  },
+
+  previewOverride: async (payload: {
+    defect_id: string;
+    target_slot_id: string;
+    horizon: HorizonType;
+  }): Promise<OverridePreviewResponse> => {
+    return request<OverridePreviewResponse>('/schedule/preview-override', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  confirmOverride: async (payload: {
+    defect_id: string;
+    target_slot_id: string;
+    horizon: HorizonType;
+    changed_by: string;
+    reason_category: string;
+    reason_freetext?: string;
+  }): Promise<OverrideConfirmResponse> => {
+    return request<OverrideConfirmResponse>('/schedule/confirm-override', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   },
 };

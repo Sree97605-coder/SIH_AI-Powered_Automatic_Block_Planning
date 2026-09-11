@@ -1,32 +1,52 @@
 from __future__ import annotations
 
+import ast
+import json
+import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from baseline_and_metrics import compare_plans, fifo_baseline, severity_baseline
+from src.database import read_records
 from src.feasibility_utils import classify_unscheduled
-
-from fastapi.middleware.cors import CORSMiddleware
+from src.optimization import optimize_schedule
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 OPTIMIZED_DIR = DATA_DIR / "optimized"
+OVERRIDE_DB_PATH = PROJECT_ROOT / "override_log.db"
+
+VALID_REASON_CATEGORIES = {
+    "prioritization_mistake": "Prioritization mistake",
+    "missed_bundling_opportunity": "Missed bundling opportunity",
+    "weather_or_emergency": "Weather or emergency",
+    "crew_or_resource_unavailable": "Crew or resource unavailable",
+    "emergency_reprioritization": "Emergency reprioritization",
+    "other": "Other",
+}
+LEARNABLE_REASON_FLAGS = {
+    "prioritization_mistake": 1,
+    "missed_bundling_opportunity": 1,
+    "weather_or_emergency": 0,
+    "crew_or_resource_unavailable": 0,
+    "emergency_reprioritization": 0,
+    "other": 0,
+}
 
 app = FastAPI(title="Rail Block Planning API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    # In production (single Render service) frontend and backend share the same
-    # origin — CORS is never triggered. These origins only matter for local dev
-    # (Vite dev server on :5173 hitting uvicorn on :8000).
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:8000",
@@ -34,8 +54,8 @@ app.add_middleware(
         "http://127.0.0.1:8000",
     ],
     allow_credentials=False,
-    allow_methods=["GET"],
-    allow_headers=["Accept"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Accept", "Content-Type"],
 )
 
 
@@ -48,10 +68,225 @@ def _read_csv(path: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _read_dataset(path: Path, table_name: str) -> pd.DataFrame:
+    records = read_records(table_name)
+    if records is not None:
+        return pd.DataFrame(records)
+    return _read_csv(path)
+
+
 def _clean_frame(df: pd.DataFrame) -> list[dict[str, Any]]:
     if df.empty:
         return []
     return df.where(pd.notna(df), None).to_dict(orient="records")
+
+
+def _parse_assigned_ids(raw: Any) -> list[str]:
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return []
+
+    s = str(raw).strip()
+    if not s:
+        return []
+
+    if s.startswith("[") and s.endswith("]"):
+        try:
+            parsed = ast.literal_eval(s)
+            if isinstance(parsed, list):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            pass
+
+    return [p.strip() for p in s.split(";") if p.strip()]
+
+
+def _normalize_horizon(horizon: str) -> str:
+    horizon = str(horizon or "").strip().lower()
+    if horizon not in {"weekly", "monthly"}:
+        raise HTTPException(status_code=400, detail=f"Invalid horizon '{horizon}'. Must be 'weekly' or 'monthly'.")
+    return horizon
+
+
+def _load_live_state(horizon: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    horizon = _normalize_horizon(horizon)
+    defects_df = _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects")
+    slots_df = _read_dataset(DATA_DIR / "block_slots.csv", "rail_slots")
+    slots_df = slots_df[slots_df["horizon"].astype(str).str.lower() == horizon].copy()
+    schedule_df = _read_dataset(OPTIMIZED_DIR / f"{horizon}_schedule.csv", f"rail_{horizon}_schedule")
+    return defects_df, slots_df, schedule_df
+
+
+def _compute_metrics(defects_df: pd.DataFrame, scheduled_ids: set[str]) -> dict[str, float]:
+    total_defects = len(defects_df)
+    if total_defects == 0:
+        return {
+            "clearance_pct": 0.0,
+            "p1_clearance_pct": 0.0,
+            "p2_clearance_pct": 0.0,
+        }
+
+    p1_total = int(defects_df[defects_df["urgency_band"].astype(str).str.contains("P1", case=False, na=False)].shape[0])
+    p2_total = int(defects_df[defects_df["urgency_band"].astype(str).str.contains("P2", case=False, na=False)].shape[0])
+
+    p1_scheduled = int(
+        defects_df[defects_df["urgency_band"].astype(str).str.contains("P1", case=False, na=False)]["defect_id"].isin(scheduled_ids).sum()
+    )
+    p2_scheduled = int(
+        defects_df[defects_df["urgency_band"].astype(str).str.contains("P2", case=False, na=False)]["defect_id"].isin(scheduled_ids).sum()
+    )
+
+    def pct(part: int, whole: int) -> float:
+        return round((part / whole) * 100.0, 1) if whole else 0.0
+
+    return {
+        "clearance_pct": round((len(scheduled_ids) / total_defects) * 100.0, 1) if total_defects else 0.0,
+        "p1_clearance_pct": pct(p1_scheduled, p1_total),
+        "p2_clearance_pct": pct(p2_scheduled, p2_total),
+    }
+
+
+def _schedule_lookup(schedule_df: pd.DataFrame) -> tuple[dict[str, list[str]], dict[str, str]]:
+    slot_lookup: dict[str, list[str]] = {}
+    defect_slot_lookup: dict[str, str] = {}
+
+    for _, row in schedule_df.iterrows():
+        slot_id = str(row.get("slot_id", ""))
+        assigned_ids = _parse_assigned_ids(row.get("assigned_defect_ids"))
+        if assigned_ids:
+            slot_lookup[slot_id] = assigned_ids
+            for defect_id in assigned_ids:
+                defect_slot_lookup[defect_id] = slot_id
+
+    return slot_lookup, defect_slot_lookup
+
+
+def _slot_remaining_hours(slot_id: str, slots_df: pd.DataFrame, slot_lookup: dict[str, list[str]], defects_df: pd.DataFrame) -> float:
+    slots = slots_df[slots_df["slot_id"].astype(str) == slot_id]
+    if slots.empty:
+        return -1.0
+
+    slot_row = slots.iloc[0]
+    target_duration = float(slot_row.get("duration_hours", 0.0) or 0.0)
+    assigned_ids = slot_lookup.get(slot_id, [])
+    defect_map = {row["defect_id"]: float(row.get("estimated_duration_hours", 0) or 0.0) for _, row in defects_df.iterrows()}
+    used_duration = sum(defect_map.get(did, 0.0) for did in assigned_ids)
+    return max(0.0, target_duration - used_duration)
+
+
+def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
+    defect_id = str(payload.get("defect_id", "")).strip()
+    target_slot_id = str(payload.get("target_slot_id", "")).strip()
+    horizon = _normalize_horizon(payload.get("horizon", ""))
+
+    if not defect_id or not target_slot_id:
+        raise HTTPException(status_code=400, detail="defect_id and target_slot_id are required.")
+
+    defects_df, slots_df, schedule_df = _load_live_state(horizon)
+
+    if defects_df.empty or slots_df.empty:
+        raise HTTPException(status_code=404, detail=f"No live data available for {horizon} horizon.")
+
+    if defect_id not in defects_df["defect_id"].astype(str).tolist():
+        raise HTTPException(status_code=404, detail=f"Defect {defect_id} was not found in the current defect dataset.")
+
+    slot_lookup, defect_slot_lookup = _schedule_lookup(schedule_df)
+    current_scheduled_ids = set()
+    for ids in slot_lookup.values():
+        current_scheduled_ids.update(ids)
+
+    if defect_id not in current_scheduled_ids:
+        raise HTTPException(status_code=404, detail=f"Defect {defect_id} is not currently scheduled in the live {horizon} plan.")
+
+    target_slots = slots_df[slots_df["slot_id"].astype(str) == target_slot_id]
+    if target_slots.empty:
+        raise HTTPException(status_code=404, detail=f"Target slot {target_slot_id} was not found for horizon {horizon}.")
+
+    current_slot_id = defect_slot_lookup.get(defect_id)
+    defect_row = defects_df[defects_df["defect_id"].astype(str) == defect_id].iloc[0]
+    defect_duration = float(defect_row.get("estimated_duration_hours", 0) or 0.0)
+    target_slot_row = target_slots.iloc[0]
+
+    available_hours = _slot_remaining_hours(target_slot_id, slots_df, slot_lookup, defects_df)
+    required_hours = defect_duration
+
+    result: dict[str, Any] = {
+        "feasible": True,
+        "reason": None,
+        "available_hours": round(available_hours, 2),
+        "required_hours": round(required_hours, 2),
+        "original_slot_id": current_slot_id,
+        "target_slot_id": target_slot_id,
+        "horizon": horizon,
+        "defect_id": defect_id,
+        "current_scheduled_ids": sorted(current_scheduled_ids),
+        "newly_deferred": [],
+        "newly_cleared": [],
+        "priority_alert": False,
+        "metrics_before": _compute_metrics(defects_df, current_scheduled_ids),
+        "metrics_after": None,
+    }
+
+    pinned_assignments = {defect_id: target_slot_id}
+    try:
+        scheduled_slots, unscheduled_df, _ = optimize_schedule(
+            data_dir=DATA_DIR,
+            horizon=horizon,
+            pinned_assignments=pinned_assignments,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail={"feasible": False, "reason": "solver_infeasible", "message": str(exc)}) from exc
+
+    new_scheduled_ids = set()
+    for slot in scheduled_slots:
+        new_scheduled_ids.update(slot.assigned_defect_ids)
+
+    result["newly_deferred"] = sorted(current_scheduled_ids - new_scheduled_ids)
+    result["newly_cleared"] = sorted(new_scheduled_ids - current_scheduled_ids)
+    result["priority_alert"] = any(
+        defects_df[defects_df["defect_id"].astype(str) == defect].iloc[0].get("urgency_band", "").upper().find("P1") >= 0 or defects_df[defects_df["defect_id"].astype(str) == defect].iloc[0].get("urgency_band", "").upper().find("P2") >= 0
+        for defect in result["newly_deferred"]
+    )
+    result["metrics_after"] = _compute_metrics(defects_df, new_scheduled_ids)
+    result["scheduled_slots"] = scheduled_slots
+    result["unscheduled_df"] = unscheduled_df
+    return result
+
+
+def _ensure_override_db() -> sqlite3.Connection:
+    OVERRIDE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(OVERRIDE_DB_PATH))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS overrides (
+            override_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            defect_id TEXT NOT NULL,
+            horizon TEXT NOT NULL,
+            original_slot_id TEXT,
+            new_slot_id TEXT NOT NULL,
+            changed_by TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            reason_category TEXT NOT NULL,
+            reason_freetext TEXT,
+            learnable INTEGER NOT NULL,
+            newly_deferred_ids TEXT,
+            priority_alert INTEGER NOT NULL
+        )
+        """
+    )
+    conn.commit()
+    return conn
+
+
+def _write_live_schedule(horizon: str, scheduled_slots: list[Any], unscheduled_df: pd.DataFrame) -> None:
+    horizon_dir = OPTIMIZED_DIR
+    horizon_dir.mkdir(parents=True, exist_ok=True)
+
+    schedule_df = pd.DataFrame([slot.__dict__ for slot in scheduled_slots])
+    schedule_path = horizon_dir / f"{horizon}_schedule.csv"
+    unscheduled_path = horizon_dir / f"unscheduled_{horizon}_defects.csv"
+
+    schedule_df.to_csv(schedule_path, index=False)
+    unscheduled_df.to_csv(unscheduled_path, index=False)
 
 
 @app.get("/health")
@@ -64,7 +299,7 @@ def get_defects(
     urgency: str | None = Query(default=None, description="Optional urgency band filter, e.g. P1 or P2"),
     limit: int | None = Query(default=None, ge=1),
 ) -> list[dict[str, Any]]:
-    defects_df = _read_csv(DATA_DIR / "prioritized_defects.csv")
+    defects_df = _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects")
     if defects_df.empty:
         return []
 
@@ -89,7 +324,7 @@ def get_defects(
 def get_slots(
     horizon: str | None = Query(default=None, description="Optional horizon filter: weekly or monthly"),
 ) -> list[dict[str, Any]]:
-    slots_df = _read_csv(DATA_DIR / "block_slots.csv")
+    slots_df = _read_dataset(DATA_DIR / "block_slots.csv", "rail_slots")
     if slots_df.empty:
         return []
     if horizon:
@@ -102,7 +337,9 @@ def get_schedule(horizon: str) -> list[dict[str, Any]]:
     horizon = horizon.lower()
     if horizon not in {"weekly", "monthly"}:
         return []
-    schedule_df = _read_csv(OPTIMIZED_DIR / f"{horizon}_schedule.csv")
+    schedule_df = _read_dataset(
+        OPTIMIZED_DIR / f"{horizon}_schedule.csv", f"rail_{horizon}_schedule"
+    )
     return _clean_frame(schedule_df)
 
 
@@ -111,7 +348,10 @@ def get_unscheduled(horizon: str) -> list[dict[str, Any]]:
     horizon = horizon.lower()
     if horizon not in {"weekly", "monthly"}:
         return []
-    unscheduled_df = _read_csv(OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv")
+    unscheduled_df = _read_dataset(
+        OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv",
+        f"rail_unscheduled_{horizon}",
+    )
     return _clean_frame(unscheduled_df)
 
 
@@ -120,8 +360,11 @@ def get_classifications(horizon: str) -> list[dict[str, Any]]:
     horizon = horizon.lower()
     if horizon not in {"weekly", "monthly"}:
         return []
-    unscheduled_df = _read_csv(OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv")
-    slots_df = _read_csv(DATA_DIR / "block_slots.csv")
+    unscheduled_df = _read_dataset(
+        OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv",
+        f"rail_unscheduled_{horizon}",
+    )
+    slots_df = _read_dataset(DATA_DIR / "block_slots.csv", "rail_slots")
     slots_df = slots_df[slots_df["horizon"].astype(str).str.lower() == horizon].copy()
     if unscheduled_df.empty:
         return []
@@ -131,15 +374,17 @@ def get_classifications(horizon: str) -> list[dict[str, Any]]:
 
 @app.get("/comparison")
 def get_comparison() -> dict[str, list[dict[str, Any]]]:
-    defects_df = _read_csv(DATA_DIR / "prioritized_defects.csv")
+    defects_df = _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects")
     if defects_df.empty:
         return {"weekly": [], "monthly": []}
 
     output: dict[str, list[dict[str, Any]]] = {}
     for horizon in ("weekly", "monthly"):
-        slots_df = _read_csv(DATA_DIR / "block_slots.csv")
+        slots_df = _read_dataset(DATA_DIR / "block_slots.csv", "rail_slots")
         slots_df = slots_df[slots_df["horizon"].astype(str).str.lower() == horizon].copy()
-        schedule_df = _read_csv(OPTIMIZED_DIR / f"{horizon}_schedule.csv")
+        schedule_df = _read_dataset(
+            OPTIMIZED_DIR / f"{horizon}_schedule.csv", f"rail_{horizon}_schedule"
+        )
 
         manual_fifo_schedule, _ = fifo_baseline(defects_df, slots_df)
         manual_severity_schedule, _ = severity_baseline(defects_df, slots_df)
@@ -184,11 +429,122 @@ def get_comparison() -> dict[str, list[dict[str, Any]]]:
     return output
 
 
+@app.post("/schedule/preview-override")
+def preview_override(payload: dict[str, Any]) -> dict[str, Any]:
+    preview = _build_override_preview(payload)
+    result = {
+        "feasible": preview["feasible"],
+        "reason": preview.get("reason"),
+        "available_hours": preview.get("available_hours"),
+        "required_hours": preview.get("required_hours"),
+        "newly_deferred": preview.get("newly_deferred", []),
+        "newly_cleared": preview.get("newly_cleared", []),
+        "priority_alert": preview.get("priority_alert", False),
+        "metrics_before": preview.get("metrics_before", {}),
+        "metrics_after": preview.get("metrics_after", {}),
+    }
+    if not preview["feasible"]:
+        return result
+    return result
+
+
+@app.post("/schedule/confirm-override")
+def confirm_override(payload: dict[str, Any]) -> dict[str, Any]:
+    reason_category = str(payload.get("reason_category", "")).strip()
+    if reason_category not in VALID_REASON_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid reason_category. Must be one of the fixed override categories.")
+
+    preview = _build_override_preview(
+        {
+            "defect_id": payload.get("defect_id"),
+            "target_slot_id": payload.get("target_slot_id"),
+            "horizon": payload.get("horizon"),
+        }
+    )
+
+    if not preview["feasible"]:
+        raise HTTPException(status_code=409, detail=preview)
+
+    changed_by = str(payload.get("changed_by", "")).strip()
+    if not changed_by:
+        raise HTTPException(status_code=400, detail="changed_by is required.")
+
+    reason_freetext = payload.get("reason_freetext")
+    if reason_freetext is not None:
+        reason_freetext = str(reason_freetext).strip()
+
+    learnable = LEARNABLE_REASON_FLAGS[reason_category]
+    now = datetime.now(timezone.utc).isoformat()
+
+    schedule_path = OPTIMIZED_DIR / f"{payload['horizon']}_schedule.csv"
+    unscheduled_path = OPTIMIZED_DIR / f"unscheduled_{payload['horizon']}_defects.csv"
+
+    schedule_backup = schedule_path.read_text(encoding="utf-8") if schedule_path.exists() else None
+    unscheduled_backup = unscheduled_path.read_text(encoding="utf-8") if unscheduled_path.exists() else None
+
+    try:
+        _write_live_schedule(preview["horizon"], preview["scheduled_slots"], preview["unscheduled_df"])
+
+        conn = _ensure_override_db()
+        try:
+            conn.execute(
+                """
+                INSERT INTO overrides (
+                    defect_id,
+                    horizon,
+                    original_slot_id,
+                    new_slot_id,
+                    changed_by,
+                    timestamp,
+                    reason_category,
+                    reason_freetext,
+                    learnable,
+                    newly_deferred_ids,
+                    priority_alert
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    preview["defect_id"],
+                    preview["horizon"],
+                    preview["original_slot_id"],
+                    preview["target_slot_id"],
+                    changed_by,
+                    now,
+                    reason_category,
+                    reason_freetext,
+                    learnable,
+                    json.dumps(preview["newly_deferred"]),
+                    int(preview["priority_alert"]),
+                ),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    except Exception as exc:
+        if schedule_backup is not None:
+            schedule_path.write_text(schedule_backup, encoding="utf-8")
+        if unscheduled_backup is not None:
+            unscheduled_path.write_text(unscheduled_backup, encoding="utf-8")
+        raise exc
+
+    return {
+        "message": "Override confirmed and committed.",
+        "horizon": preview["horizon"],
+        "defect_id": preview["defect_id"],
+        "target_slot_id": preview["target_slot_id"],
+        "schedule": _clean_frame(pd.DataFrame([slot.__dict__ for slot in preview["scheduled_slots"]])),
+        "unscheduled": _clean_frame(preview["unscheduled_df"]),
+    }
+
+
 # Serve compiled React frontend assets when dist/ exists
 DIST_DIR = PROJECT_ROOT / "frontend" / "dist"
 if DIST_DIR.exists():
-    from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
 
     assets_dir = DIST_DIR / "assets"
     if assets_dir.exists():
@@ -196,8 +552,7 @@ if DIST_DIR.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        # Don't intercept API routes
-        if full_path.startswith("api/") or full_path in ["health", "defects", "slots", "schedules", "comparison", "unscheduled", "docs", "openapi.json", "redoc"]:
+        if full_path.startswith("api/") or full_path in ["health", "defects", "slots", "schedules", "comparison", "unscheduled", "docs", "openapi.json", "redoc", "schedule"]:
             return None
         file_path = DIST_DIR / full_path
         if file_path.is_file():
