@@ -90,12 +90,28 @@ export interface OverridePreviewResponse {
   newly_deferred: string[];
   newly_cleared: string[];
   priority_alert: boolean;
+  /** True when at least one P1 defect would be deferred by this override. */
+  p1_displacement: boolean;
+  /** False when p1_displacement=true AND reason_category is not in the emergency allow-list. */
+  reason_category_valid_for_displacement: boolean;
   metrics_before: Record<string, number>;
   metrics_after?: Record<string, number> | null;
   original_slot_id?: string | null;
   target_slot_id?: string | null;
   horizon?: HorizonType;
   defect_id?: string;
+}
+
+/**
+ * Structured error detail returned in the JSON body of 403 and 409 responses
+ * from the override preview/confirm endpoints.
+ */
+export interface ApiErrorDetail {
+  reason: string;
+  message: string;
+  p1_displacement?: boolean;
+  newly_deferred?: string[];
+  reason_category_valid_for_displacement?: boolean;
 }
 
 export interface OverrideConfirmResponse {

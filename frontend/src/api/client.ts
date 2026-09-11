@@ -19,10 +19,13 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 export class ApiError extends Error {
   status?: number;
-  constructor(message: string, status?: number) {
+  /** Raw parsed JSON `detail` from the error response body, if available. */
+  detail?: unknown;
+  constructor(message: string, status?: number, detail?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -45,10 +48,16 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
         if (errorPayload && typeof errorPayload === 'object') {
           const detail = (errorPayload as { detail?: string | unknown }).detail;
           if (typeof detail === 'string') {
-            throw new ApiError(detail, res.status);
+            throw new ApiError(detail, res.status, detail);
           }
           if (detail && typeof detail === 'object') {
-            throw new ApiError(JSON.stringify(detail), res.status);
+            // Preserve the structured detail object (e.g. 403 p1_displacement payloads)
+            const msg = (detail as Record<string, unknown>).message;
+            throw new ApiError(
+              typeof msg === 'string' ? msg : JSON.stringify(detail),
+              res.status,
+              detail,
+            );
           }
         }
       }
@@ -143,6 +152,8 @@ export const api = {
     defect_id: string;
     target_slot_id: string;
     horizon: HorizonType;
+    /** Required at preview time — backend uses it to gate P1-displacing overrides. */
+    reason_category: string;
   }): Promise<OverridePreviewResponse> => {
     return request<OverridePreviewResponse>('/schedule/preview-override', {
       method: 'POST',

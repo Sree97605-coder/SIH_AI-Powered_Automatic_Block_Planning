@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Shield, Cpu, Clock, ArrowRightLeft, CheckCircle2 } from 'lucide-react';
-import { api } from '../../api/client';
-import { BlockSlot, Defect, HorizonType, OverridePreviewResponse, ScheduledSlot } from '../../types';
+import { X, Shield, Cpu, Clock, ArrowRightLeft, CheckCircle2, AlertTriangle, Ban } from 'lucide-react';
+import { api, ApiError } from '../../api/client';
+import { ApiErrorDetail, BlockSlot, Defect, HorizonType, OverridePreviewResponse, ScheduledSlot } from '../../types';
 
 interface DefectExplainModalProps {
   defect: Defect | null;
@@ -10,6 +10,8 @@ interface DefectExplainModalProps {
   horizon?: HorizonType;
   schedule?: ScheduledSlot[];
   slots?: BlockSlot[];
+  /** Called after a successful confirm so the parent can re-fetch live schedule data. */
+  onConfirmSuccess?: () => void;
 }
 
 const REASON_OPTIONS = [
@@ -33,15 +35,21 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   horizon = 'weekly',
   schedule = [],
   slots = [],
+  onConfirmSuccess,
 }) => {
   const [targetSlotId, setTargetSlotId] = useState('');
   const [reasonCategory, setReasonCategory] = useState(REASON_OPTIONS[0].value);
   const [reasonFreetext, setReasonFreetext] = useState('');
   const [preview, setPreview] = useState<OverridePreviewResponse | null>(null);
+  // Generic error message for 409/network/unexpected errors
   const [previewError, setPreviewError] = useState<string | null>(null);
+  // Structured 403 payload — P1 policy rejection, rendered distinctly
+  const [policyRejection, setPolicyRejection] = useState<ApiErrorDetail | null>(null);
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  // Officer must explicitly acknowledge P1 displacement before Confirm is enabled
+  const [p1Acknowledged, setP1Acknowledged] = useState(false);
 
   useEffect(() => {
     if (!defect) return;
@@ -53,9 +61,11 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     setTargetSlotId(nextTarget);
     setPreview(null);
     setPreviewError(null);
+    setPolicyRejection(null);
     setConfirmMessage(null);
     setReasonCategory(REASON_OPTIONS[0].value);
     setReasonFreetext('');
+    setP1Acknowledged(false);
   }, [defect, schedule, slots]);
 
   if (!defect) return null;
@@ -67,10 +77,13 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   const currentSlot = schedule.find((slot) => toAssignedIds(slot).includes(defect.defect_id));
   const candidateSlots = slots.filter((slot) => slot.section_id === defect.section_id).sort((a, b) => a.start_datetime.localeCompare(b.start_datetime));
 
+  // ── Gap 1 fix: reason_category included in preview call ──────────────────
   const handlePreview = async () => {
     setPreview(null);
     setPreviewError(null);
+    setPolicyRejection(null);
     setConfirmMessage(null);
+    setP1Acknowledged(false);
 
     if (!targetSlotId) {
       setPreviewError('Choose a target slot before previewing the override.');
@@ -83,13 +96,36 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
         defect_id: defect.defect_id,
         target_slot_id: targetSlotId,
         horizon,
+        reason_category: reasonCategory,  // ← C1 Gap 1: was missing
       });
       setPreview(response);
       if (!response.feasible) {
         setPreviewError(response.reason ?? 'Override preview is not feasible.');
       }
     } catch (err: unknown) {
-      setPreviewError(err instanceof Error ? err.message : 'Override preview failed.');
+      // ── Gap 2 fix: three-way error handling ──────────────────────────────
+      if (err instanceof ApiError) {
+        if (err.status === 403) {
+          // Policy rejection — P1 deferral with non-emergency reason_category.
+          // Show the structured reason (deferred IDs, why it was blocked) so the
+          // officer knows exactly what to do, not just "error".
+          const d = err.detail as ApiErrorDetail | null;
+          setPolicyRejection(
+            d ?? {
+              reason: 'p1_displacement_not_authorized',
+              message: err.message,
+            }
+          );
+        } else if (err.status === 409) {
+          // Physical infeasibility — slot capacity numbers are already shown in
+          // the preview panel; surface a concise capacity message.
+          setPreviewError(`Capacity infeasibility: ${err.message}`);
+        } else {
+          setPreviewError(err.message);
+        }
+      } else {
+        setPreviewError(err instanceof Error ? err.message : 'Override preview failed.');
+      }
     } finally {
       setIsPreviewing(false);
     }
@@ -100,6 +136,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     setIsConfirming(true);
     setConfirmMessage(null);
     setPreviewError(null);
+    setPolicyRejection(null);
 
     try {
       const response = await api.confirmOverride({
@@ -111,12 +148,27 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
         reason_freetext: reasonFreetext || undefined,
       });
       setConfirmMessage(response.message);
+      // ── Gap 3 fix: trigger parent re-fetch from live API ─────────────────
+      onConfirmSuccess?.();
     } catch (err: unknown) {
-      setPreviewError(err instanceof Error ? err.message : 'Override confirmation failed.');
+      if (err instanceof ApiError && err.status === 403) {
+        // Re-check: policy gate also enforced at confirm time
+        const d = err.detail as ApiErrorDetail | null;
+        setPolicyRejection(d ?? { reason: 'p1_displacement_not_authorized', message: err.message });
+      } else {
+        setPreviewError(err instanceof Error ? err.message : 'Override confirmation failed.');
+      }
     } finally {
       setIsConfirming(false);
     }
   };
+
+  // Confirm button enabled only when: preview feasible, no P1 that needs ack, or P1 acknowledged
+  const confirmEnabled =
+    !isConfirming &&
+    !!preview &&
+    preview.feasible &&
+    (!preview.p1_displacement || p1Acknowledged);
 
   return (
     <AnimatePresence>
@@ -204,7 +256,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                   <select
                     id="target-slot"
                     value={targetSlotId}
-                    onChange={(e) => setTargetSlotId(e.target.value)}
+                    onChange={(e) => { setTargetSlotId(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
                     className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
                   >
                     {candidateSlots.length === 0 && <option value="">No compatible slots available</option>}
@@ -220,7 +272,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                 <select
                   id="override-reason"
                   value={reasonCategory}
-                  onChange={(e) => setReasonCategory(e.target.value)}
+                  onChange={(e) => { setReasonCategory(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
                   className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
                 >
                   {REASON_OPTIONS.map((option) => (
@@ -241,24 +293,31 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                 />
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={handlePreview}
-                  disabled={isPreviewing || !targetSlotId}
-                  className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
-                >
-                  {isPreviewing ? 'Previewing…' : 'Preview override'}
-                </button>
+              {/* ── Gap 2 fix: 403 — policy rejection banner ─────────────────────── */}
+              {policyRejection && (
+                <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Ban className="w-4 h-4 text-[var(--accent-red)] shrink-0" />
+                    <span className="text-xs font-bold text-[var(--accent-red)]">Policy rejection — P1 deferral not authorised</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--accent-red)] leading-relaxed">{policyRejection.message}</p>
+                  {policyRejection.newly_deferred && policyRejection.newly_deferred.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-mono uppercase text-[var(--accent-red)] opacity-70 mb-1">P1 defects that would be deferred</div>
+                      <div className="flex flex-wrap gap-1">
+                        {policyRejection.newly_deferred.map((id) => (
+                          <span key={id} className="rounded-full bg-[var(--accent-red-bg)] border border-[var(--accent-red-border)] px-2 py-0.5 text-[10px] font-mono text-[var(--accent-red)]">{id}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-[10px] font-mono text-[var(--accent-red)] opacity-80">
+                    Switch reason category to <strong>Weather or emergency</strong> or <strong>Emergency reprioritization</strong> to proceed.
+                  </p>
+                </div>
+              )}
 
-                <button
-                  onClick={handleConfirm}
-                  disabled={isConfirming || !preview || !preview.feasible}
-                  className="px-4 py-2 rounded-full bg-[var(--accent-green)] text-white text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
-                >
-                  {isConfirming ? 'Confirming…' : 'Confirm override'}
-                </button>
-              </div>
-
+              {/* ── Gap 2 fix: 409 / other error ─────────────────────────────────── */}
               {previewError && (
                 <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-3 py-2 text-xs text-[var(--accent-red)]">
                   {previewError}
@@ -271,6 +330,26 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                   {confirmMessage}
                 </div>
               )}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  id="btn-preview-override"
+                  onClick={handlePreview}
+                  disabled={isPreviewing || !targetSlotId}
+                  className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {isPreviewing ? 'Previewing…' : 'Preview override'}
+                </button>
+
+                <button
+                  id="btn-confirm-override"
+                  onClick={handleConfirm}
+                  disabled={!confirmEnabled}
+                  className="px-4 py-2 rounded-full bg-[var(--accent-green)] text-white text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
+                >
+                  {isConfirming ? 'Confirming…' : 'Confirm override'}
+                </button>
+              </div>
             </div>
 
             {preview && (
@@ -281,6 +360,51 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                     {preview.feasible ? 'Feasible' : 'Blocked'}
                   </span>
                 </div>
+
+                {/* ── Gap 2 fix: P1 displacement warning banner (200 + p1_displacement=true) */}
+                {preview.feasible && preview.p1_displacement && (
+                  <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-[var(--accent-red)] shrink-0" />
+                      <span className="text-xs font-bold text-[var(--accent-red)]">⚠ P1 safety defect will be deferred</span>
+                    </div>
+                    <p className="text-[11px] text-[var(--accent-red)] leading-relaxed">
+                      This override displaces a P1 — Immediate Safety defect from the schedule.
+                      Emergency reason <strong>{reasonCategory}</strong> has been accepted.
+                      Confirm only if you have operational authority and this is a genuine emergency.
+                    </p>
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {preview.newly_deferred.map((id) => (
+                        <span key={id} className="rounded-full bg-[var(--accent-red-bg)] border border-[var(--accent-red-border)] px-2 py-0.5 text-[10px] font-mono text-[var(--accent-red)]">{id}</span>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        id="chk-p1-acknowledge"
+                        type="checkbox"
+                        checked={p1Acknowledged}
+                        onChange={(e) => setP1Acknowledged(e.target.checked)}
+                        className="accent-[var(--accent-red)] w-3.5 h-3.5"
+                      />
+                      <span className="text-[11px] font-mono text-[var(--accent-red)]">
+                        I understand this defers a P1 safety defect and take responsibility for this decision.
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {/* P2-only displacement — amber advisory, no acknowledgement required */}
+                {preview.feasible && !preview.p1_displacement && preview.priority_alert && (
+                  <div className="rounded-xl border border-[var(--accent-amber-border)] bg-[var(--accent-amber-bg)] px-4 py-3 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-[var(--accent-amber)] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-bold text-[var(--accent-amber)]">P2 priority alert</p>
+                      <p className="text-[11px] text-[var(--accent-amber)] opacity-80">
+                        This override defers P2 — Urgent defect(s). Review the deferred list before confirming.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
                   <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2">
@@ -296,8 +420,10 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                     <div className="font-mono font-bold text-[var(--text-heading)]">{preview.newly_deferred.length}</div>
                   </div>
                   <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2">
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Priority alert</div>
-                    <div className="font-mono font-bold text-[var(--text-heading)]">{preview.priority_alert ? 'Yes' : 'No'}</div>
+                    <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">P1 impact</div>
+                    <div className={`font-mono font-bold ${preview.p1_displacement ? 'text-[var(--accent-red)]' : 'text-[var(--text-heading)]'}`}>
+                      {preview.p1_displacement ? 'Yes' : 'No'}
+                    </div>
                   </div>
                 </div>
 

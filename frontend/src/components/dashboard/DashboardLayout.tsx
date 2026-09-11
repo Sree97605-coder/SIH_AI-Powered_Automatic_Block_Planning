@@ -15,6 +15,7 @@ import {
   useDefects,
   useClassifications,
 } from '../../api/hooks';
+import { useQueryClient } from '@tanstack/react-query';
 import { VERIFIED_BENCHMARKS } from '../../config/constants';
 
 interface DashboardLayoutProps {
@@ -27,6 +28,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
   const [perspective, setPerspective] = useState<PerspectiveType>('division');
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
   const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null);
+
+  const queryClient = useQueryClient();
 
   // Queries from TanStack React Query
   const { data: healthData, isError: isHealthError } = useHealth();
@@ -150,6 +153,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         horizon={horizon}
         schedule={rawSchedule}
         slots={rawSlots}
+        onConfirmSuccess={() => {
+          // Re-fetch live schedule + slots from API after a successful confirm.
+          // Invalidating both keys ensures the merged slot display (occupied/idle)
+          // and the raw schedule fed to the modal both reflect the new state.
+          queryClient.invalidateQueries({ queryKey: ['schedule', horizon] });
+          queryClient.invalidateQueries({ queryKey: ['slots', horizon] });
+        }}
       />
 
       {/* Dev Mode Assertion Cross-Check Panel */}
