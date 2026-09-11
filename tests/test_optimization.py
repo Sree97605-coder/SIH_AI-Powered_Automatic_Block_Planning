@@ -1277,6 +1277,236 @@ class ClassicalOptimizationTests(unittest.TestCase):
         self.assertGreater(len(scheduled), 0)
 
 
+    def test_confirm_override_p1_emergency_writes_schedule_and_log(self) -> None:
+        """Full confirm round-trip: P1-displacing override with weather_or_emergency succeeds.
+
+        Exercises the COMPLETE path — confirm_override (not _build_override_preview
+        directly) — and verifies four things:
+
+        1. Return value: 200 with message "Override confirmed and committed."
+        2. SQLite overrides table: correct row written with expected field values.
+        3. Live schedule mutation: P1 defect absent from new schedule, pinned
+           defect present in target slot.
+        4. Rollback behaviour: schedule file is restored if the DB insert fails.
+           Atomicity is FILE-BASED (in-memory backup strings), not crash-safe.
+           If the process is killed after _write_live_schedule and before the
+           backup restore, the CSV is left in the post-override state with no
+           log entry.  This is a KNOWN LIMITATION documented here rather than
+           silently skipped.
+
+        LEARNABLE_REASON_FLAGS verification (checked before this test was written):
+          weather_or_emergency  → learnable=0 (line 40 of api.py)
+          emergency_reprioritization → learnable=0 (line 42 of api.py)
+          Both were 0 BEFORE the P1 gating policy was added and remain 0 after.
+          The policy implementation (EMERGENCY_REASON_CATEGORIES) is a separate
+          frozenset that was added alongside LEARNABLE_REASON_FLAGS; it does not
+          modify that lookup.  This comment is the explicit confirmation requested.
+
+        DB schema note: the overrides table has a `priority_alert` INTEGER column
+        (not a dedicated `p1_displacement` column).  For a P1-displacing override,
+        priority_alert=1 because P1 is always in the deferred set which triggers
+        the priority_alert flag.  This is sufficient for audit filtering.
+
+        Fixture (reuses _make_p1_fixture geometry):
+          SLOT-A(3h), SLOT-B(1.5h). P1-TEST(3h)→SLOT-A, P3-SCHED(1.5h)→SLOT-B.
+          Override: pin P3-SCHED→SLOT-A with reason_category=weather_or_emergency.
+          Expected: P1-TEST deferred, P3-SCHED lands in SLOT-A.
+          priority_alert=1 in DB (P1 is in newly_deferred).
+          learnable=0 (weather_or_emergency is non-learnable).
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)  # writes CSVs + baseline schedule
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                # ── 1. Full confirm call via the actual API function ──────────
+                with _patch_section_by_id():
+                    result = api.confirm_override(
+                        {
+                            "defect_id": "P3-SCHED",
+                            "target_slot_id": "SLOT-A",
+                            "horizon": "weekly",
+                            "changed_by": "test_officer",
+                            "reason_category": "weather_or_emergency",
+                            "reason_freetext": "Cyclone Fani diverted maintenance window",
+                        }
+                    )
+
+                # ── 2. Return value check ─────────────────────────────────────
+                self.assertEqual(
+                    result["message"],
+                    "Override confirmed and committed.",
+                    "confirm_override must return success message for emergency P1 override",
+                )
+                self.assertEqual(result["defect_id"], "P3-SCHED")
+                self.assertEqual(result["target_slot_id"], "SLOT-A")
+
+                # ── 3a. DB row: reason_category, learnable, priority_alert ────
+                db_path = tmp_path / "override_log.db"
+                self.assertTrue(db_path.exists(), "override_log.db must exist after confirm")
+                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+                try:
+                    row = conn.execute(
+                        """
+                        SELECT reason_category, learnable, priority_alert,
+                               newly_deferred_ids, defect_id, new_slot_id
+                        FROM overrides
+                        ORDER BY override_id DESC LIMIT 1
+                        """
+                    ).fetchone()
+                finally:
+                    conn.close()
+
+                self.assertIsNotNone(row, "overrides table must contain at least one row")
+                db_reason_category, db_learnable, db_priority_alert, \
+                    db_newly_deferred_ids, db_defect_id, db_new_slot_id = row
+
+                self.assertEqual(
+                    db_reason_category,
+                    "weather_or_emergency",
+                    "reason_category must be stored exactly as provided",
+                )
+                self.assertEqual(
+                    db_learnable,
+                    0,
+                    "learnable must be 0: weather_or_emergency is in LEARNABLE_REASON_FLAGS "
+                    "with value 0 — this was NOT changed by the P1 gating policy work",
+                )
+                self.assertEqual(
+                    db_priority_alert,
+                    1,
+                    "priority_alert must be 1: P1-TEST is in newly_deferred, which sets "
+                    "priority_alert=True in _build_override_preview, stored as 1 in the DB",
+                )
+                self.assertEqual(db_defect_id, "P3-SCHED", "defect_id must match the pinned defect")
+                self.assertEqual(db_new_slot_id, "SLOT-A", "new_slot_id must be the target slot")
+
+                # newly_deferred_ids must include P1-TEST
+                deferred_ids = json.loads(db_newly_deferred_ids)
+                self.assertIn(
+                    "P1-TEST",
+                    deferred_ids,
+                    "P1-TEST must appear in newly_deferred_ids in the DB row — "
+                    "this is the audit trail for P1-displacing emergency overrides",
+                )
+
+                # ── 3b. Live schedule mutation check ──────────────────────────
+                # The schedule CSV that confirm_override writes to is the
+                # canonical live state (what _load_live_state reads back).
+                live_schedule_path = tmp_path / "optimized" / "weekly_schedule.csv"
+                self.assertTrue(live_schedule_path.exists(), "Live schedule CSV must exist")
+                live_schedule = pd.read_csv(live_schedule_path)
+
+                # P1-TEST must NOT appear in any slot's assigned_defect_ids
+                all_live_assigned_ids: set[str] = set()
+                for _, row_s in live_schedule.iterrows():
+                    raw = row_s.get("assigned_defect_ids", "")
+                    for did in str(raw).strip("[]").replace("'", "").split(","):
+                        cleaned = did.strip()
+                        if cleaned:
+                            all_live_assigned_ids.add(cleaned)
+
+                self.assertNotIn(
+                    "P1-TEST",
+                    all_live_assigned_ids,
+                    "P1-TEST must NOT be in the live schedule after the emergency override — "
+                    "it was displaced by the pin",
+                )
+                # P3-SCHED must appear in SLOT-A's row
+                slot_a_rows = live_schedule[live_schedule["slot_id"].astype(str) == "SLOT-A"]
+                self.assertFalse(slot_a_rows.empty, "SLOT-A must appear in live schedule")
+                slot_a_assigned = str(slot_a_rows.iloc[0].get("assigned_defect_ids", ""))
+                self.assertIn(
+                    "P3-SCHED",
+                    slot_a_assigned,
+                    "P3-SCHED must be in SLOT-A after the override",
+                )
+
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+        # ── 4. Rollback: DB insert failure restores schedule CSV ──────────────
+        # The rollback mechanism is file-based:
+        #   - Before _write_live_schedule, api.py reads schedule_backup and
+        #     unscheduled_backup as in-memory strings (lines 556-557).
+        #   - If any exception is raised within the outer try block (including
+        #     a DB insert failure), the except clause (lines 600-604) restores
+        #     the CSV contents from those in-memory strings.
+        # This means: a DB insert exception AFTER _write_live_schedule rolls
+        # back the CSV.  Proven here by mocking the DB connection to raise
+        # immediately on execute(), then checking the CSV is unchanged.
+        with tempfile.TemporaryDirectory() as tmpdir2:
+            tmp_path2 = Path(tmpdir2)
+            self._make_p1_fixture(tmp_path2)
+
+            # Capture the baseline schedule content BEFORE the confirm attempt
+            baseline_csv_content = (tmp_path2 / "optimized" / "weekly_schedule.csv").read_text(
+                encoding="utf-8"
+            )
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+
+            try:
+                api.DATA_DIR = tmp_path2
+                api.OPTIMIZED_DIR = tmp_path2 / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path2 / "override_log.db"
+
+                # Patch _ensure_override_db to return a connection whose execute() raises.
+                import unittest.mock as _mock
+
+                class _FailingConn:
+                    def execute(self, *a, **kw):
+                        raise RuntimeError("Simulated DB failure after schedule write")
+                    def rollback(self):
+                        pass
+                    def close(self):
+                        pass
+
+                with _mock.patch("src.api._ensure_override_db", return_value=_FailingConn()):
+                    with self.assertRaises(RuntimeError):
+                        with _patch_section_by_id():
+                            api.confirm_override(
+                                {
+                                    "defect_id": "P3-SCHED",
+                                    "target_slot_id": "SLOT-A",
+                                    "horizon": "weekly",
+                                    "changed_by": "test_officer",
+                                    "reason_category": "weather_or_emergency",
+                                    "reason_freetext": "Rollback test",
+                                }
+                            )
+
+                # The CSV must be restored to the pre-override baseline
+                restored_content = (tmp_path2 / "optimized" / "weekly_schedule.csv").read_text(
+                    encoding="utf-8"
+                )
+                self.assertEqual(
+                    restored_content,
+                    baseline_csv_content,
+                    "Schedule CSV must be restored to pre-override state when DB insert fails — "
+                    "file-based rollback via in-memory backup strings (lines 556-557, 600-604 api.py). "
+                    "KNOWN LIMITATION: rollback only fires on Python exceptions; a process kill "
+                    "between _write_live_schedule and the backup restore would leave the CSV "
+                    "in the post-override state with no DB log entry.",
+                )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+
 if __name__ == "__main__":
     unittest.main()
 
