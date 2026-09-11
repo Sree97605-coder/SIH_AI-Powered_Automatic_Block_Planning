@@ -192,6 +192,7 @@ class BlockOptimizer:
         min_slot_util_pct: float = 0.50,
         min_p2_clearance_pct: float = 0.60,
         pinned_assignments: dict[str, str] | None = None,
+        relax_p1_requirement: bool = False,
     ) -> tuple[list[ScheduledSlot], pd.DataFrame, dict[str, Any]]:
         """Formulate and solve MILP optimization for a given planning horizon.
 
@@ -201,6 +202,14 @@ class BlockOptimizer:
         - For same-department bundles the MILP additionally enforces:
             sum(assigned durations) <= slot_duration
         - No effective-duration capping is applied.
+
+        relax_p1_requirement (default False):
+        - When True, Hard Constraint 1 ("every P1 must be scheduled") is omitted
+          from the formulation.  This is ONLY used by the emergency override
+          preview/confirm code path to allow the solver to show what a
+          P1-displacing override would produce.  It MUST remain False for all
+          normal weekly/monthly generation calls.
+        - Physical capacity constraints (slot duration caps) are NEVER relaxed.
         """
         if self.defects_df.empty or self.slots_df.empty:
             self.load_data()
@@ -294,12 +303,15 @@ class BlockOptimizer:
                 prob += y[s_id] == 0
 
         # ── Hard Constraint 1: 100% P1 Immediate Safety Defects ──────────────
+        # Conditionally relaxed ONLY when relax_p1_requirement=True (emergency override
+        # preview path).  Never relaxed for normal weekly/monthly generation.
         p1_defects = [d for d in defects if d.get("urgency_band") == "P1 - Immediate"
                       and not extended_block_flags.get(d["defect_id"], False)]
-        for d in p1_defects:
-            d_id = d["defect_id"]
-            if d_id in u:
-                prob += u[d_id] == 1
+        if not relax_p1_requirement:
+            for d in p1_defects:
+                d_id = d["defect_id"]
+                if d_id in u:
+                    prob += u[d_id] == 1
 
         # ── Hard Constraint 2: P2 Clearance (60% weekly / 90% monthly) ───────
         p2_defects = [d for d in defects if d.get("urgency_band") == "P2 - Urgent"
@@ -691,13 +703,19 @@ def optimize_schedule(
     data_dir: Path | None = None,
     horizon: str = "weekly",
     pinned_assignments: dict[str, str] | None = None,
+    relax_p1_requirement: bool = False,
 ) -> tuple[list[ScheduledSlot], pd.DataFrame, dict[str, Any]]:
-    """Run the existing optimization for a single horizon with optional pinned assignments."""
+    """Run the existing optimization for a single horizon with optional pinned assignments.
+
+    relax_p1_requirement: pass-through to build_and_solve_milp.  Must remain
+    False for all callers except the emergency override preview path in api.py.
+    """
     optimizer = BlockOptimizer(data_dir=data_dir)
     optimizer.load_data()
     return optimizer.build_and_solve_milp(
         horizon=horizon,
         pinned_assignments=pinned_assignments,
+        relax_p1_requirement=relax_p1_requirement,
     )
 
 

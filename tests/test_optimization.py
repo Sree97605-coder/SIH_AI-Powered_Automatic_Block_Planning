@@ -1,4 +1,4 @@
-﻿"""Unit tests for Classical Mathematical Block Optimization Engine (PuLP / MILP)."""
+"""Unit tests for Classical Mathematical Block Optimization Engine (PuLP / MILP)."""
 
 from __future__ import annotations
 
@@ -460,110 +460,192 @@ class ClassicalOptimizationTests(unittest.TestCase):
                 "P3-SCHED (the pinned defect) must not appear in newly_deferred",
             )
 
-    def test_override_p1_displacement_returns_solver_infeasibility(self) -> None:
-        """P1 protection is enforced by the solver, not by a priority_alert warning.
+    # -----------------------------------------------------------------------
+    # P1-Displacement Gated Override Policy Tests (6 tests)
+    #
+    # Shared fixture geometry (used by tests 1–3):
+    #   SLOT-A(3h, SEC-TEST), SLOT-B(1.5h, SEC-TEST)
+    #   P1-TEST(3h, Engineering): only fits SLOT-A (SLOT-B is 1.5h < 3h)
+    #   P3-SCHED(1.5h, TRD): fits both slots.
+    #   Baseline: P1-TEST→SLOT-A, P3-SCHED→SLOT-B.
+    #   Override: pin P3-SCHED→SLOT-A (1.5h pinned, leaving 1.5h in SLOT-A).
+    #     P1-TEST(3h) cannot fit 1.5h remaining in SLOT-A, nor 1.5h in SLOT-B.
+    #     With relax_p1_requirement=True, the solver places P3-SCHED in SLOT-A
+    #     and leaves P1-TEST unscheduled → newly_deferred = ["P1-TEST"].
+    # -----------------------------------------------------------------------
 
-        The MILP has a hard constraint (Hard Constraint 1) that forces every non-extended-block
-        P1 defect to be scheduled.  An override that would make P1 clearance impossible is
-        therefore REJECTED at the solver level â€” the MILP returns Infeasible, which surfaces
-        as HTTP 409, NOT as a feasible preview + priority_alert=True.
+    def _make_p1_fixture(self, tmp_path: Path) -> None:
+        """Write the shared P1-displacement fixture to tmp_path."""
+        defects = pd.DataFrame(
+            [
+                {
+                    "defect_id": "P1-TEST",
+                    "section_id": "SEC-TEST",
+                    "department": "Engineering",
+                    "estimated_duration_hours": 3.0,
+                    "urgency_band": "P1 - Immediate",
+                    "final_priority_score": 100.0,
+                },
+                {
+                    "defect_id": "P3-SCHED",
+                    "section_id": "SEC-TEST",
+                    "department": "TRD",
+                    "estimated_duration_hours": 1.5,
+                    "urgency_band": "P3 - Planned",
+                    "final_priority_score": 30.0,
+                },
+            ]
+        )
+        slots = pd.DataFrame(
+            [
+                {
+                    "slot_id": "SLOT-A",
+                    "section_id": "SEC-TEST",
+                    "start_datetime": "2026-09-07T00:00:00",
+                    "end_datetime": "2026-09-07T03:00:00",
+                    "duration_hours": 3.0,
+                    "is_night_window": True,
+                    "traffic_density": "High",
+                    "source": "Timetable",
+                    "horizon": "weekly",
+                },
+                {
+                    "slot_id": "SLOT-B",
+                    "section_id": "SEC-TEST",
+                    "start_datetime": "2026-09-07T03:00:00",
+                    "end_datetime": "2026-09-07T04:30:00",
+                    "duration_hours": 1.5,
+                    "is_night_window": True,
+                    "traffic_density": "High",
+                    "source": "Timetable",
+                    "horizon": "weekly",
+                },
+            ]
+        )
+        defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+        slots.to_csv(tmp_path / "block_slots.csv", index=False)
 
-        This means: "priority_alert" for P1 deferral is structurally unreachable through the
-        normal override flow.  P1 protection is harder and stronger than a warning â€” the
-        entire override is refused rather than silently permitted.
+        with _patch_section_by_id():
+            scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
 
-        Fixture design (deterministic by construction):
-          - SLOT-A(3h, SEC-TEST), SLOT-B(1.5h, SEC-TEST)
-          - P1-TEST(3h): only fits SLOT-A; SLOT-B (1.5h) is too small.
-          - P3-SCHED(1.5h): fits both SLOT-A and SLOT-B.
-          - Baseline: P1-TESTâ†’SLOT-A, P3-SCHEDâ†’SLOT-B (both scheduled âœ“).
-          - Override: move P3-SCHED from SLOT-B â†’ SLOT-A.
-            SLOT-A(3h) pinned with P3-SCHED(1.5h) â†’ 1.5h remaining.
-            P1-TEST(3h) needs 3h.  SLOT-A: 1.5h left < 3h required.  SLOT-B(1.5h) < 3h.
-            P1-TEST cannot be scheduled anywhere â†’ Hard Constraint 1 forces infeasibility.
-            MILP returns Infeasible â†’ RuntimeError â†’ HTTPException 409.
+        # Precondition arithmetic: baseline must have P1-TEST→SLOT-A, P3-SCHED→SLOT-B.
+        # SLOT-A(3h) ≥ P1(3h) ✓; SLOT-B(1.5h) ≥ P3(1.5h) ✓; both scheduled.
+        assigned = {did for slot in scheduled for did in slot.assigned_defect_ids}
+        self.assertIn("P1-TEST", assigned, "Precondition: P1-TEST must be in baseline schedule")
+        self.assertIn("P3-SCHED", assigned, "Precondition: P3-SCHED must be in baseline schedule")
 
-        This is the definitive proof that P1 defects cannot be silently displaced.
+        (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+        pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(
+            tmp_path / "optimized" / "weekly_schedule.csv", index=False
+        )
+        unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
+
+    def test_p1_displacement_allowed_with_weather_or_emergency(self) -> None:
+        """P1 displacement + weather_or_emergency → preview succeeds, p1_displacement=True.
+
+        Policy: weather_or_emergency is in EMERGENCY_REASON_CATEGORIES, so the
+        gating check passes.  The preview must return feasible=True with
+        p1_displacement=True and P1-TEST in newly_deferred.
+
+        Arithmetic (fixture from _make_p1_fixture):
+          Override: P3-SCHED(1.5h) pinned to SLOT-A(3h). 1.5h remaining.
+          P1-TEST(3h) > 1.5h remaining in SLOT-A and > 1.5h in SLOT-B.
+          relax_p1_requirement=True → solver may leave P1-TEST unscheduled.
+          newly_deferred = ["P1-TEST"]. reason_category in allow-list → 200, not 403.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
 
-            # --- fixture data ---------------------------------------------------
-            defects = pd.DataFrame(
-                [
-                    {
-                        "defect_id": "P1-TEST",
-                        "section_id": "SEC-TEST",
-                        "department": "Engineering",
-                        "estimated_duration_hours": 3.0,
-                        "urgency_band": "P1 - Immediate",
-                        "final_priority_score": 100.0,
-                    },
-                    {
-                        "defect_id": "P3-SCHED",
-                        "section_id": "SEC-TEST",
-                        "department": "TRD",
-                        "estimated_duration_hours": 1.5,
-                        "urgency_band": "P3 - Planned",
-                        "final_priority_score": 30.0,
-                    },
-                ]
-            )
-            # SLOT-A(3h): only slot large enough for P1-TEST(3h).
-            # SLOT-B(1.5h): only slot small enough to be P3-SCHED's home in the baseline.
-            #   After P3-SCHED is pinned to SLOT-A, only 1.5h remains in SLOT-A â€” not enough
-            #   for P1(3h).  SLOT-B(1.5h) is also too small for P1(3h).  P1 has nowhere to go.
-            slots = pd.DataFrame(
-                [
-                    {
-                        "slot_id": "SLOT-A",
-                        "section_id": "SEC-TEST",
-                        "start_datetime": "2026-09-07T00:00:00",
-                        "end_datetime": "2026-09-07T03:00:00",
-                        "duration_hours": 3.0,
-                        "is_night_window": True,
-                        "traffic_density": "High",
-                        "source": "Timetable",
-                        "horizon": "weekly",
-                    },
-                    {
-                        "slot_id": "SLOT-B",
-                        "section_id": "SEC-TEST",
-                        "start_datetime": "2026-09-07T03:00:00",
-                        "end_datetime": "2026-09-07T04:30:00",
-                        "duration_hours": 1.5,
-                        "is_night_window": True,
-                        "traffic_density": "High",
-                        "source": "Timetable",
-                        "horizon": "weekly",
-                    },
-                ]
-            )
-
-            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
-            slots.to_csv(tmp_path / "block_slots.csv", index=False)
-
-            with _patch_section_by_id():
-                scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
-
-            # Precondition: P3-SCHED is scheduled in the baseline (it fits SLOT-B)
-            assigned_in_baseline = {did for slot in scheduled for did in slot.assigned_defect_ids}
-            self.assertIn("P1-TEST", assigned_in_baseline, "Precondition: P1-TEST must be scheduled in baseline")
-            self.assertIn("P3-SCHED", assigned_in_baseline, "Precondition: P3-SCHED must be scheduled in baseline")
-
-            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
-            pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(
-                tmp_path / "optimized" / "weekly_schedule.csv", index=False
-            )
-            unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
-
-            # --- override: move P3-SCHED from SLOT-B â†’ SLOT-A ------------------
-            # This pins P3-SCHED(1.5h) into SLOT-A(3h), leaving only 1.5h for P1(3h).
-            # P1 cannot be placed anywhere â†’ solver infeasible â†’ HTTP 409.
             original_data_dir = api.DATA_DIR
             original_optimized_dir = api.OPTIMIZED_DIR
             original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+                with _patch_section_by_id():
+                    preview = api._build_override_preview(
+                        {
+                            "defect_id": "P3-SCHED",
+                            "target_slot_id": "SLOT-A",
+                            "horizon": "weekly",
+                            "reason_category": "weather_or_emergency",
+                        }
+                    )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
 
+        self.assertTrue(preview["feasible"], "Override must be feasible (P3-SCHED 1.5h fits SLOT-A 3h)")
+        self.assertTrue(preview["p1_displacement"], "p1_displacement must be True: P1-TEST is in newly_deferred")
+        self.assertTrue(preview["priority_alert"], "priority_alert must be True when a P1 is deferred")
+        self.assertIn("P1-TEST", preview["newly_deferred"], "P1-TEST must appear in newly_deferred")
+        self.assertTrue(
+            preview["reason_category_valid_for_displacement"],
+            "weather_or_emergency is in EMERGENCY_REASON_CATEGORIES, so valid=True",
+        )
+
+    def test_p1_displacement_allowed_with_emergency_reprioritization(self) -> None:
+        """P1 displacement + emergency_reprioritization → preview succeeds (same as test 1).
+
+        Arithmetic: identical fixture; only reason_category changes.
+        emergency_reprioritization is in EMERGENCY_REASON_CATEGORIES → gating passes.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+                with _patch_section_by_id():
+                    preview = api._build_override_preview(
+                        {
+                            "defect_id": "P3-SCHED",
+                            "target_slot_id": "SLOT-A",
+                            "horizon": "weekly",
+                            "reason_category": "emergency_reprioritization",
+                        }
+                    )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+        self.assertTrue(preview["feasible"])
+        self.assertTrue(preview["p1_displacement"])
+        self.assertIn("P1-TEST", preview["newly_deferred"])
+        self.assertTrue(preview["reason_category_valid_for_displacement"])
+
+    def test_p1_displacement_blocked_with_non_emergency_reason_returns_403(self) -> None:
+        """P1 displacement + prioritization_mistake → rejected with 403, NOT 409.
+
+        This is a POLICY rejection (wrong reason category), not a physical
+        infeasibility.  The status code must be specifically 403.
+
+        Arithmetic: same fixture.  P1-TEST would be deferred (proven above).
+        prioritization_mistake is NOT in EMERGENCY_REASON_CATEGORIES.
+        The gate fires → HTTPException(403) before the preview is returned.
+
+        Also doubles as the re-specification of what the OLD
+        test_override_p1_displacement_returns_solver_infeasibility tested: in
+        the old code a P1-displacing pin caused a 409 (solver failure). In the
+        new code, with relax_p1_requirement=True, the solver succeeds but the
+        policy gate fires a 403 for non-emergency categories.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
             try:
                 api.DATA_DIR = tmp_path
                 api.OPTIMIZED_DIR = tmp_path / "optimized"
@@ -576,6 +658,7 @@ class ClassicalOptimizationTests(unittest.TestCase):
                                 "defect_id": "P3-SCHED",
                                 "target_slot_id": "SLOT-A",
                                 "horizon": "weekly",
+                                "reason_category": "prioritization_mistake",
                             }
                         )
             finally:
@@ -583,18 +666,298 @@ class ClassicalOptimizationTests(unittest.TestCase):
                 api.OPTIMIZED_DIR = original_optimized_dir
                 api.OVERRIDE_DB_PATH = original_db_path
 
-            # The API must return 409 (solver_infeasible), NOT a priority_alert preview.
-            # This proves P1 protection is at the solver level, not advisory.
-            self.assertEqual(
-                exc_ctx.exception.status_code,
-                409,
-                "Override that would displace a P1 must be REJECTED with 409, not silently warned",
+        self.assertEqual(
+            exc_ctx.exception.status_code,
+            403,
+            "P1 displacement with non-emergency reason must return 403 (policy), not 409 (physical)",
+        )
+        detail = exc_ctx.exception.detail
+        self.assertIsInstance(detail, dict)
+        self.assertEqual(detail.get("reason"), "p1_displacement_not_authorized")
+        self.assertTrue(detail.get("p1_displacement"))
+        self.assertFalse(detail.get("reason_category_valid_for_displacement"))
+        self.assertIn("prioritization_mistake", detail.get("message", ""))
+
+    def test_p1_displacement_blocked_with_crew_unavailable_returns_403(self) -> None:
+        """P1 displacement + crew_or_resource_unavailable → 403 (a third non-emergency category).
+
+        Retained from the spirit of the old infeasibility test: we always keep
+        at least one test showing that a BLOCKED category is indeed blocked.
+        crew_or_resource_unavailable is an operationally legitimate category but
+        NOT in EMERGENCY_REASON_CATEGORIES — an officer citing crew absence
+        cannot defer a P1 defect through the override UI.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                with self.assertRaises(HTTPException) as exc_ctx:
+                    with _patch_section_by_id():
+                        api._build_override_preview(
+                            {
+                                "defect_id": "P3-SCHED",
+                                "target_slot_id": "SLOT-A",
+                                "horizon": "weekly",
+                                "reason_category": "crew_or_resource_unavailable",
+                            }
+                        )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+        self.assertEqual(exc_ctx.exception.status_code, 403)
+        detail = exc_ctx.exception.detail
+        self.assertEqual(detail.get("reason"), "p1_displacement_not_authorized")
+        self.assertIn("crew_or_resource_unavailable", detail.get("message", ""))
+
+    def test_physical_capacity_infeasibility_still_returns_409(self) -> None:
+        """A physically impossible pin (defect > every slot) still returns 409, not 403.
+
+        This proves the two rejection paths stay separate:
+          - 403 = policy gate (P1 displaced + wrong reason category)
+          - 409 = physical infeasibility (pin cannot fit, even with P1 relaxed)
+
+        Fixture arithmetic:
+          SLOT-A(1h, SEC-TEST). P3-BIG(2h, SEC-TEST).
+          P3-BIG(2h) > SLOT-A(1h): no slot has room even without the P1 constraint.
+          With relax_p1_requirement=True the solver still cannot fit P3-BIG → Infeasible → 409.
+
+        But first we need P3-BIG to be in the baseline schedule; since it can't fit
+        SLOT-A(1h), it will be unscheduled in baseline — so the 'not currently scheduled'
+        guard fires first (404).  We instead use a second slot SLOT-B(3h) so P3-BIG
+        is scheduled there, then try to pin it to SLOT-A(1h) which is too small.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+
+            defects = pd.DataFrame(
+                [
+                    {
+                        "defect_id": "P3-BIG",
+                        "section_id": "SEC-TEST",
+                        "department": "TRD",
+                        "estimated_duration_hours": 2.0,
+                        "urgency_band": "P3 - Planned",
+                        "final_priority_score": 50.0,
+                    },
+                ]
             )
-            detail = exc_ctx.exception.detail
-            if isinstance(detail, dict):
-                self.assertEqual(detail.get("reason"), "solver_infeasible")
-            else:
-                self.assertIn("infeasible", str(detail).lower())
+            slots = pd.DataFrame(
+                [
+                    {
+                        "slot_id": "SLOT-SMALL",
+                        "section_id": "SEC-TEST",
+                        "start_datetime": "2026-09-07T00:00:00",
+                        "end_datetime": "2026-09-07T01:00:00",
+                        "duration_hours": 1.0,
+                        "is_night_window": True,
+                        "traffic_density": "High",
+                        "source": "Timetable",
+                        "horizon": "weekly",
+                    },
+                    {
+                        "slot_id": "SLOT-FIT",
+                        "section_id": "SEC-TEST",
+                        "start_datetime": "2026-09-07T01:00:00",
+                        "end_datetime": "2026-09-07T04:00:00",
+                        "duration_hours": 3.0,
+                        "is_night_window": True,
+                        "traffic_density": "High",
+                        "source": "Timetable",
+                        "horizon": "weekly",
+                    },
+                ]
+            )
+            # Baseline: P3-BIG(2h) → SLOT-FIT(3h). SLOT-SMALL(1h) < 2h; P3-BIG can't go there.
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+            with _patch_section_by_id():
+                scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
+            assigned = {did for slot in scheduled for did in slot.assigned_defect_ids}
+            self.assertIn("P3-BIG", assigned, "Precondition: P3-BIG must be scheduled in SLOT-FIT")
+
+            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(
+                tmp_path / "optimized" / "weekly_schedule.csv", index=False
+            )
+            unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                # Pin P3-BIG(2h) → SLOT-SMALL(1h): 2h > 1h, physically impossible even with relax.
+                with self.assertRaises(HTTPException) as exc_ctx:
+                    with _patch_section_by_id():
+                        api._build_override_preview(
+                            {
+                                "defect_id": "P3-BIG",
+                                "target_slot_id": "SLOT-SMALL",
+                                "horizon": "weekly",
+                                "reason_category": "weather_or_emergency",  # valid emergency reason
+                            }
+                        )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+        # Must be 409 (physical infeasibility), not 403 (policy)
+        self.assertEqual(
+            exc_ctx.exception.status_code,
+            409,
+            "Physically impossible pin must still be 409, not 403, even with a valid emergency reason",
+        )
+        detail = exc_ctx.exception.detail
+        if isinstance(detail, dict):
+            self.assertEqual(detail.get("reason"), "solver_infeasible")
+
+    def test_non_p1_displacement_unaffected_by_p1_gating(self) -> None:
+        """P2/P3-only displacement with any reason category is unaffected by the P1 gate.
+
+        Uses the existing priority-alert fixture (P3-SCHED → SLOT-LARGE-1 displaces
+        P2-TEST-A) but exercises it with reason_category='prioritization_mistake'
+        (a non-emergency category).  The P1 gate must NOT fire because no P1 is
+        displaced.  The preview must succeed with priority_alert=True, p1_displacement=False.
+
+        Arithmetic: same as test_override_priority_alert_fires_for_feasible_pinned_conflict.
+        No P1 defects exist in this fixture, so deferred_p1_ids is empty → gate skipped.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+
+            defects = pd.DataFrame(
+                [
+                    {"defect_id": "P2-TEST-A", "section_id": "SEC-TEST", "department": "Engineering",
+                     "estimated_duration_hours": 5.0, "urgency_band": "P2 - Urgent", "final_priority_score": 90.0},
+                    {"defect_id": "P2-TEST-B", "section_id": "SEC-TEST", "department": "S&T",
+                     "estimated_duration_hours": 5.0, "urgency_band": "P2 - Urgent", "final_priority_score": 85.0},
+                    {"defect_id": "P2-TEST-C", "section_id": "SEC-TEST", "department": "TRD",
+                     "estimated_duration_hours": 5.0, "urgency_band": "P2 - Urgent", "final_priority_score": 80.0},
+                    {"defect_id": "P3-SCHED", "section_id": "SEC-TEST", "department": "Engineering",
+                     "estimated_duration_hours": 2.0, "urgency_band": "P3 - Planned", "final_priority_score": 30.0},
+                ]
+            )
+            slots = pd.DataFrame(
+                [
+                    {"slot_id": "SLOT-LARGE-1", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T00:00:00",
+                     "end_datetime": "2026-09-07T06:00:00", "duration_hours": 6.0, "is_night_window": True,
+                     "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "SLOT-LARGE-2", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T06:00:00",
+                     "end_datetime": "2026-09-07T12:00:00", "duration_hours": 6.0, "is_night_window": True,
+                     "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "SLOT-LARGE-3", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T12:00:00",
+                     "end_datetime": "2026-09-07T18:00:00", "duration_hours": 6.0, "is_night_window": False,
+                     "traffic_density": "Medium", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "SLOT-SMALL", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T18:00:00",
+                     "end_datetime": "2026-09-07T20:00:00", "duration_hours": 2.0, "is_night_window": False,
+                     "traffic_density": "Low", "source": "Timetable", "horizon": "weekly"},
+                ]
+            )
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+
+            with _patch_section_by_id():
+                scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
+
+            assigned = {did for slot in scheduled for did in slot.assigned_defect_ids}
+            self.assertIn("P3-SCHED", assigned, "Precondition: P3-SCHED scheduled in SLOT-SMALL")
+            self.assertIn("P2-TEST-A", assigned, "Precondition: P2-TEST-A scheduled in baseline")
+
+            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(
+                tmp_path / "optimized" / "weekly_schedule.csv", index=False
+            )
+            unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                with _patch_section_by_id():
+                    preview = api._build_override_preview(
+                        {
+                            "defect_id": "P3-SCHED",
+                            "target_slot_id": "SLOT-LARGE-1",
+                            "horizon": "weekly",
+                            # Non-emergency reason category — must NOT trigger P1 gate
+                            "reason_category": "prioritization_mistake",
+                        }
+                    )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+        self.assertTrue(preview["feasible"], "Override is feasible: P3-SCHED(2h) fits SLOT-LARGE-1(6h)")
+        self.assertFalse(
+            preview["p1_displacement"],
+            "p1_displacement must be False: no P1 defects exist in this fixture",
+        )
+        self.assertTrue(preview["priority_alert"], "priority_alert=True because P2-TEST-A is displaced")
+        deferred_p2s = [d for d in preview["newly_deferred"] if "P2-TEST" in d]
+        self.assertGreaterEqual(len(deferred_p2s), 1, "At least one P2-TEST-* in newly_deferred")
+        # reason_category_valid_for_displacement is True because no P1 gate applies
+        self.assertTrue(preview["reason_category_valid_for_displacement"])
+
+    def test_relax_p1_requirement_does_not_affect_baseline_generation(self) -> None:
+        """relax_p1_requirement=False (the default) leaves weekly output byte-identical.
+
+        This is the regression test required by the implementation spec: proves that
+        adding the new parameter did not change baseline generation behavior.
+        Extends test_unpinned_regression_matches_existing_weekly_output by explicitly
+        passing relax_p1_requirement=False and also verifying monthly output.
+        """
+        # Weekly regression — explicit False must match existing committed output
+        scheduled_w, unscheduled_w, _ = optimize_schedule(
+            data_dir=DATA_DIR, horizon="weekly", relax_p1_requirement=False
+        )
+        baseline_schedule_w = pd.read_csv(DATA_DIR / "optimized" / "weekly_schedule.csv")
+        baseline_unscheduled_w = pd.read_csv(DATA_DIR / "optimized" / "unscheduled_weekly_defects.csv")
+
+        self.assertEqual(
+            pd.DataFrame([asdict(s) for s in scheduled_w]).to_csv(index=False),
+            baseline_schedule_w.to_csv(index=False),
+            "Weekly schedule must be byte-identical with relax_p1_requirement=False",
+        )
+        self.assertEqual(
+            unscheduled_w.to_csv(index=False),
+            baseline_unscheduled_w.to_csv(index=False),
+            "Weekly unscheduled must be byte-identical with relax_p1_requirement=False",
+        )
+
+        # Monthly regression — relax_p1_requirement=False must also be inert here
+        scheduled_m, unscheduled_m, kpis_m = optimize_schedule(
+            data_dir=DATA_DIR, horizon="monthly", relax_p1_requirement=False
+        )
+        self.assertEqual(
+            kpis_m["solver_status"],
+            "Optimal",
+            "Monthly solve must remain Optimal with relax_p1_requirement=False",
+        )
+        # P1 clearance must still be 100% — proves the hard constraint is still active
+        self.assertEqual(
+            kpis_m["p1_immediate_clearance_pct"],
+            100.0,
+            "Monthly P1 clearance must remain 100% — relax_p1_requirement=False must not have leaked",
+        )
 
     def test_confirm_override_rejects_missing_reason_category(self) -> None:
         """Confirming an override without a valid reason category must fail fast with 400.

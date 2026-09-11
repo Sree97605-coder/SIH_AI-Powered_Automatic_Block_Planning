@@ -42,6 +42,13 @@ LEARNABLE_REASON_FLAGS = {
     "emergency_reprioritization": 0,
     "other": 0,
 }
+# Allow-list for overrides that would displace a P1 defect.
+# Only genuine emergency categories may defer a P1; all others get a 403
+# (policy rejection), not a 409 (physical infeasibility).
+EMERGENCY_REASON_CATEGORIES: frozenset[str] = frozenset({
+    "weather_or_emergency",
+    "emergency_reprioritization",
+})
 
 app = FastAPI(title="Rail Block Planning API", version="1.0.0")
 
@@ -174,9 +181,16 @@ def _slot_remaining_hours(slot_id: str, slots_df: pd.DataFrame, slot_lookup: dic
 
 
 def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
+    """Build a preview of what a proposed slot override would produce.
+
+    reason_category is required in the payload at PREVIEW time, not only at
+    confirm time, because P1-displacement gating must be evaluated before
+    the officer decides whether to proceed.
+    """
     defect_id = str(payload.get("defect_id", "")).strip()
     target_slot_id = str(payload.get("target_slot_id", "")).strip()
     horizon = _normalize_horizon(payload.get("horizon", ""))
+    reason_category = str(payload.get("reason_category", "")).strip()
 
     if not defect_id or not target_slot_id:
         raise HTTPException(status_code=400, detail="defect_id and target_slot_id are required.")
@@ -222,30 +236,80 @@ def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
         "newly_deferred": [],
         "newly_cleared": [],
         "priority_alert": False,
+        "p1_displacement": False,
+        "reason_category_valid_for_displacement": True,
         "metrics_before": _compute_metrics(defects_df, current_scheduled_ids),
         "metrics_after": None,
     }
 
     pinned_assignments = {defect_id: target_slot_id}
+    # Always use relax_p1_requirement=True so the solver can show what the
+    # override would produce even when it displaces a P1.  Physical capacity
+    # constraints (slot duration caps) remain hard and still surface as 409.
     try:
         scheduled_slots, unscheduled_df, _ = optimize_schedule(
             data_dir=DATA_DIR,
             horizon=horizon,
             pinned_assignments=pinned_assignments,
+            relax_p1_requirement=True,
         )
     except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail={"feasible": False, "reason": "solver_infeasible", "message": str(exc)}) from exc
+        # Physical capacity infeasibility: slot cannot hold the pin at all.
+        raise HTTPException(
+            status_code=409,
+            detail={"feasible": False, "reason": "solver_infeasible", "message": str(exc)}
+        ) from exc
 
     new_scheduled_ids = set()
     for slot in scheduled_slots:
         new_scheduled_ids.update(slot.assigned_defect_ids)
 
-    result["newly_deferred"] = sorted(current_scheduled_ids - new_scheduled_ids)
+    newly_deferred = sorted(current_scheduled_ids - new_scheduled_ids)
+    result["newly_deferred"] = newly_deferred
     result["newly_cleared"] = sorted(new_scheduled_ids - current_scheduled_ids)
-    result["priority_alert"] = any(
-        defects_df[defects_df["defect_id"].astype(str) == defect].iloc[0].get("urgency_band", "").upper().find("P1") >= 0 or defects_df[defects_df["defect_id"].astype(str) == defect].iloc[0].get("urgency_band", "").upper().find("P2") >= 0
-        for defect in result["newly_deferred"]
-    )
+
+    # Detect P1 and P2 in deferred set
+    deferred_p1_ids = [
+        d for d in newly_deferred
+        if not defects_df[defects_df["defect_id"].astype(str) == d].empty
+        and "P1" in str(defects_df[defects_df["defect_id"].astype(str) == d].iloc[0].get("urgency_band", "")).upper()
+    ]
+    deferred_p2_or_above_ids = [
+        d for d in newly_deferred
+        if not defects_df[defects_df["defect_id"].astype(str) == d].empty
+        and (
+            "P1" in str(defects_df[defects_df["defect_id"].astype(str) == d].iloc[0].get("urgency_band", "")).upper()
+            or "P2" in str(defects_df[defects_df["defect_id"].astype(str) == d].iloc[0].get("urgency_band", "")).upper()
+        )
+    ]
+
+    has_p1_displacement = len(deferred_p1_ids) > 0
+    result["p1_displacement"] = has_p1_displacement
+    result["priority_alert"] = len(deferred_p2_or_above_ids) > 0
+
+    # --- P1-displacement policy gate (server-enforced) -----------------------
+    # If the override would defer a P1, the reason_category MUST be in the
+    # emergency allow-list.  This is checked BEFORE returning the preview so
+    # the officer sees the policy rejection immediately.
+    if has_p1_displacement:
+        valid_for_p1 = reason_category in EMERGENCY_REASON_CATEGORIES
+        result["reason_category_valid_for_displacement"] = valid_for_p1
+        if not valid_for_p1:
+            allowed = sorted(EMERGENCY_REASON_CATEGORIES)
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "reason": "p1_displacement_not_authorized",
+                    "message": (
+                        f"Deferring a P1 defect requires reason_category to be one of "
+                        f"{allowed}. Received: '{reason_category}'."
+                    ),
+                    "p1_displacement": True,
+                    "newly_deferred": newly_deferred,
+                    "reason_category_valid_for_displacement": False,
+                },
+            )
+
     result["metrics_after"] = _compute_metrics(defects_df, new_scheduled_ids)
     result["scheduled_slots"] = scheduled_slots
     result["unscheduled_df"] = unscheduled_df
@@ -431,6 +495,13 @@ def get_comparison() -> dict[str, list[dict[str, Any]]]:
 
 @app.post("/schedule/preview-override")
 def preview_override(payload: dict[str, Any]) -> dict[str, Any]:
+    """Preview the effect of a proposed slot override.
+
+    reason_category is required at preview time (not just confirm time) because
+    P1-displacement gating is evaluated here.  If the override would defer a P1
+    and reason_category is not in EMERGENCY_REASON_CATEGORIES, a 403 is returned
+    before the officer can proceed to confirm.
+    """
     preview = _build_override_preview(payload)
     result = {
         "feasible": preview["feasible"],
@@ -440,6 +511,8 @@ def preview_override(payload: dict[str, Any]) -> dict[str, Any]:
         "newly_deferred": preview.get("newly_deferred", []),
         "newly_cleared": preview.get("newly_cleared", []),
         "priority_alert": preview.get("priority_alert", False),
+        "p1_displacement": preview.get("p1_displacement", False),
+        "reason_category_valid_for_displacement": preview.get("reason_category_valid_for_displacement", True),
         "metrics_before": preview.get("metrics_before", {}),
         "metrics_after": preview.get("metrics_after", {}),
     }
@@ -459,6 +532,7 @@ def confirm_override(payload: dict[str, Any]) -> dict[str, Any]:
             "defect_id": payload.get("defect_id"),
             "target_slot_id": payload.get("target_slot_id"),
             "horizon": payload.get("horizon"),
+            "reason_category": reason_category,
         }
     )
 
