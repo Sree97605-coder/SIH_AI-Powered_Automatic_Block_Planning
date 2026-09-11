@@ -7,6 +7,7 @@ import {
   HorizonType,
   OverridePreviewResponse,
   OverrideConfirmResponse,
+  AuditLogEntry,
 } from '../types';
 import {
   VERIFIED_BENCHMARKS,
@@ -145,6 +146,15 @@ export const api = {
       return Array.isArray(data) ? data : [];
     } catch {
       return horizon === 'monthly' ? UNSCHEDULED_MONTHLY_CONTENTION : [];
+    }
+  },
+
+  getAuditLog: async (): Promise<AuditLogEntry[]> => {
+    try {
+      const data = await request<AuditLogEntry[]>('/audit-log');
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
     }
   },
 

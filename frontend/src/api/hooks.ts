@@ -60,6 +60,15 @@ export function useClassifications(horizon: HorizonType) {
   });
 }
 
+export function useAuditLog(enabled = true) {
+  return useQuery({
+    queryKey: ['audit-log'],
+    queryFn: () => api.getAuditLog(),
+    enabled,
+    staleTime: 30000,
+  });
+}
+
 /**
  * Hook to get merged occupied + idle slots for a horizon
  */

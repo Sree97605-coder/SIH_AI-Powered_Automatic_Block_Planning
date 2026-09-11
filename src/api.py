@@ -358,6 +358,38 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/audit-log")
+def get_audit_log(
+    defect_id: str | None = Query(default=None),
+    horizon: str | None = Query(default=None),
+) -> list[dict[str, Any]]:
+    if horizon is not None and horizon.lower() not in {"weekly", "monthly"}:
+        raise HTTPException(status_code=400, detail="horizon must be 'weekly' or 'monthly'.")
+
+    query = "SELECT * FROM overrides"
+    parameters: list[str] = []
+    filters: list[str] = []
+
+    if defect_id is not None:
+        filters.append("defect_id = ?")
+        parameters.append(defect_id)
+    if horizon is not None:
+        filters.append("horizon = ?")
+        parameters.append(horizon.lower())
+
+    if filters:
+        query += " WHERE " + " AND ".join(filters)
+    query += " ORDER BY timestamp DESC"
+
+    connection = sqlite3.connect(f"file:{OVERRIDE_DB_PATH}?mode=ro", uri=True)
+    connection.row_factory = sqlite3.Row
+    try:
+        rows = connection.execute(query, parameters).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        connection.close()
+
+
 @app.get("/defects")
 def get_defects(
     urgency: str | None = Query(default=None, description="Optional urgency band filter, e.g. P1 or P2"),

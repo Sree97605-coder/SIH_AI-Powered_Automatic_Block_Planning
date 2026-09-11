@@ -7,21 +7,25 @@ import {
   ArrowLeft,
   Train,
   Clock,
+  ClipboardList,
 } from 'lucide-react';
 import { SYSTEM_META } from '../../config/constants';
+import { RoleType } from '../../types';
 
-export type DashboardTab = 'overview' | 'weekly' | 'monthly' | 'unscheduled' | 'corridor';
+export type DashboardTab = 'overview' | 'weekly' | 'monthly' | 'unscheduled' | 'corridor' | 'audit';
 
 interface SidebarProps {
   activeTab: DashboardTab;
   onTabChange: (tab: DashboardTab) => void;
   onBackToLanding: () => void;
+  role: RoleType;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
   onBackToLanding,
+  role,
 }) => {
   const navItems = [
     {
@@ -54,6 +58,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: MapPin,
       badge: '5 Sections',
     },
+    ...(role === 'COA_ADMIN' ? [{
+      id: 'audit' as DashboardTab,
+      label: 'Audit Log',
+      icon: ClipboardList,
+      badge: 'Overrides',
+    }] : []),
   ];
 
   return (

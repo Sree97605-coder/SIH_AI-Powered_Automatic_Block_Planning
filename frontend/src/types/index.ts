@@ -1,6 +1,7 @@
 export type HorizonType = 'weekly' | 'monthly';
 export type PerspectiveType = 'division' | 'engineer' | 'ohe' | 'smt' | 'control';
 export type DepartmentType = 'Engineering' | 'TRD' | 'S&T' | 'ALL';
+export type RoleType = 'COA_ADMIN' | 'DEPT_ENGINEER' | 'DIVISION_HEAD';
 
 export interface Defect {
   defect_id: string;
@@ -126,6 +127,21 @@ export interface OverrideConfirmResponse {
 export interface ComparisonResponse {
   weekly: PlanComparisonRow[];
   monthly: PlanComparisonRow[];
+}
+
+export interface AuditLogEntry {
+  override_id: number;
+  defect_id: string;
+  horizon: HorizonType;
+  original_slot_id?: string | null;
+  new_slot_id: string;
+  changed_by: string;
+  timestamp: string;
+  reason_category: string;
+  reason_freetext?: string | null;
+  learnable: number;
+  newly_deferred_ids?: string | null;
+  priority_alert: number;
 }
 
 export interface StationInfo {

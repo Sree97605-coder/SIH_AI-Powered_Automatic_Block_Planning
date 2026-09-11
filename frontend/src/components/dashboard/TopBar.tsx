@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Shield, User, Calendar, Zap, Radio, Sun, Moon } from 'lucide-react';
-import { HorizonType, PerspectiveType } from '../../types';
+import { DepartmentType, HorizonType, PerspectiveType, RoleType } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
 import { SYSTEM_META } from '../../config/constants';
 
@@ -11,6 +11,10 @@ interface TopBarProps {
   onPerspectiveChange: (p: PerspectiveType) => void;
   solverStatus?: string;
   isBackendConnected?: boolean;
+  role: RoleType;
+  department: DepartmentType;
+  onRoleChange: (role: RoleType) => void;
+  onDepartmentChange: (department: DepartmentType) => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -19,6 +23,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   perspective,
   onPerspectiveChange,
   solverStatus = 'Optimal',
+  role,
+  department,
+  onRoleChange,
+  onDepartmentChange,
 }) => {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -127,6 +135,33 @@ export const TopBar: React.FC<TopBarProps> = ({
           >
             Monthly (30d)
           </button>
+        </div>
+
+        <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] px-3 py-1 rounded-full shadow-[var(--shadow-card)]">
+          <User className="w-3.5 h-3.5 text-[var(--accent-amber)]" />
+          <label htmlFor="role-switcher" className="text-[9px] text-[var(--text-muted)] font-mono">Role</label>
+          <select
+            id="role-switcher"
+            value={role}
+            onChange={(event) => onRoleChange(event.target.value as RoleType)}
+            className="bg-transparent text-xs font-mono font-bold text-[var(--text-heading)] focus:outline-none cursor-pointer"
+          >
+            <option value="COA_ADMIN">COA Admin</option>
+            <option value="DEPT_ENGINEER">Dept Engineer</option>
+            <option value="DIVISION_HEAD">Division Head</option>
+          </select>
+          {role === 'DEPT_ENGINEER' && (
+            <select
+              id="department-switcher"
+              value={department}
+              onChange={(event) => onDepartmentChange(event.target.value as DepartmentType)}
+              className="bg-transparent border-l border-[var(--border-subtle)] pl-2 text-xs font-mono font-bold text-[var(--accent-steel)] focus:outline-none cursor-pointer"
+            >
+              <option value="Engineering">TMS</option>
+              <option value="S&T">SMMS</option>
+              <option value="TRD">TDMS</option>
+            </select>
+          )}
         </div>
 
         {/* Perspective Switcher Dropdown (With OHE & SSMT Support) */}

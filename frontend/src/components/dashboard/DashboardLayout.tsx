@@ -5,15 +5,17 @@ import { OverviewView } from './views/OverviewView';
 import { PlanScheduleView } from './views/PlanScheduleView';
 import { UnscheduledView } from './views/UnscheduledView';
 import { CorridorMapView } from './views/CorridorMapView';
+import { AuditLogView } from './views/AuditLogView';
 import { DefectExplainModal } from './DefectExplainModal';
 import { DevDebugPanel } from './DevDebugPanel';
-import { HorizonType, PerspectiveType, Defect } from '../../types';
+import { DepartmentType, HorizonType, PerspectiveType, Defect, RoleType } from '../../types';
 import {
   useHealth,
   useComparison,
   useMergedSlots,
   useDefects,
   useClassifications,
+  useAuditLog,
 } from '../../api/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { VERIFIED_BENCHMARKS } from '../../config/constants';
@@ -22,12 +24,33 @@ interface DashboardLayoutProps {
   onBackToLanding: () => void;
 }
 
+const ROLE_SESSION_KEY = 'tracksynex.role';
+const DEPARTMENT_SESSION_KEY = 'tracksynex.department';
+
+const readRole = (): RoleType => {
+  if (typeof window === 'undefined') return 'COA_ADMIN';
+  const storedRole = window.sessionStorage.getItem(ROLE_SESSION_KEY);
+  return storedRole === 'COA_ADMIN' || storedRole === 'DEPT_ENGINEER' || storedRole === 'DIVISION_HEAD'
+    ? storedRole
+    : 'COA_ADMIN';
+};
+
+const readDepartment = (): DepartmentType => {
+  if (typeof window === 'undefined') return 'Engineering';
+  const storedDepartment = window.sessionStorage.getItem(DEPARTMENT_SESSION_KEY);
+  return storedDepartment === 'Engineering' || storedDepartment === 'TRD' || storedDepartment === 'S&T'
+    ? storedDepartment
+    : 'Engineering';
+};
+
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLanding }) => {
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [horizon, setHorizon] = useState<HorizonType>('monthly');
   const [perspective, setPerspective] = useState<PerspectiveType>('division');
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
   const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null);
+  const [role, setRole] = useState<RoleType>(readRole);
+  const [engineerDepartment, setEngineerDepartment] = useState<DepartmentType>(readDepartment);
 
   const queryClient = useQueryClient();
 
@@ -42,6 +65,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
     isLoading: isLoadingSlots,
   } = useMergedSlots(horizon, selectedSectionFilter);
   const { data: classifications = [], isLoading: isLoadingClassifications } = useClassifications(horizon);
+  const { data: auditEntries = [], isLoading: isLoadingAudit, refetch: refetchAudit } = useAuditLog(role === 'COA_ADMIN');
 
   const isBackendConnected = !isHealthError && healthData?.status === 'ok';
   const solverStatus = 'Optimal';
@@ -66,6 +90,38 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
     ? 'S&T'
     : 'ALL';
 
+  const activeDepartment = role === 'DEPT_ENGINEER' ? engineerDepartment : departmentPerspective;
+  const matchesDepartment = (department: string | undefined, defectId: string) => {
+    const value = (department || '').toLowerCase();
+    if (activeDepartment === 'Engineering') return value.includes('eng') || value.includes('tms') || defectId.startsWith('TMS');
+    if (activeDepartment === 'TRD') return value.includes('trd') || value.includes('tdms') || value.includes('ohe') || defectId.startsWith('TDMS');
+    if (activeDepartment === 'S&T') return value.includes('s&t') || value.includes('smms') || value.includes('smt') || defectId.startsWith('SMMS');
+    return true;
+  };
+  const visibleDefects = role === 'DEPT_ENGINEER'
+    ? defects.filter((defect) => matchesDepartment(defect.department, defect.defect_id))
+    : defects;
+  const visibleDefectIds = new Set(visibleDefects.map((defect) => defect.defect_id));
+  const visibleClassifications = role === 'DEPT_ENGINEER'
+    ? classifications.filter((item) => visibleDefectIds.has(item.defect_id) || matchesDepartment(item.department, item.defect_id))
+    : classifications;
+  const visibleMergedSlots = role === 'DEPT_ENGINEER'
+    ? mergedSlots
+        .map((slot) => {
+          if (!slot.is_occupied) return slot;
+          const assignedDefectIds = slot.assigned_defect_ids.filter((defectId) => visibleDefectIds.has(defectId));
+          return {
+            ...slot,
+            assigned_defect_ids: assignedDefectIds,
+            assigned_defect_count: assignedDefectIds.length,
+            departments_involved: assignedDefectIds.length > 0 ? [engineerDepartment] : [],
+            is_bundled: assignedDefectIds.length > 1,
+            bundle_type: assignedDefectIds.length > 1 ? 'Multi-Task Block' : 'Single Task Block',
+          };
+        })
+        .filter((slot) => !slot.is_occupied || slot.assigned_defect_ids.length > 0)
+    : mergedSlots;
+
   const comparisonRow = comparisonData[horizon]?.find(r => r.plan === 'Optimized');
 
   return (
@@ -74,6 +130,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
       {/* Persistent Left Sidebar (~220px desktop) */}
       <Sidebar
         activeTab={activeTab}
+        role={role}
         onTabChange={(tab) => {
           setActiveTab(tab);
           if (tab === 'weekly') setHorizon('weekly');
@@ -91,6 +148,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
           onHorizonChange={(h) => setHorizon(h)}
           perspective={perspective}
           onPerspectiveChange={handlePerspectiveChange}
+          role={role}
+          department={engineerDepartment}
+          onRoleChange={(nextRole) => {
+            setRole(nextRole);
+            window.sessionStorage.setItem(ROLE_SESSION_KEY, nextRole);
+            setSelectedDefect(null);
+            if (nextRole !== 'COA_ADMIN' && activeTab === 'audit') {
+              setActiveTab('overview');
+            }
+            if (nextRole === 'DEPT_ENGINEER') {
+              setPerspective(engineerDepartment === 'Engineering' ? 'engineer' : engineerDepartment === 'TRD' ? 'ohe' : 'smt');
+            } else {
+              setPerspective('division');
+            }
+          }}
+          onDepartmentChange={(department) => {
+            setEngineerDepartment(department);
+            window.sessionStorage.setItem(DEPARTMENT_SESSION_KEY, department);
+            setSelectedDefect(null);
+            setPerspective(department === 'Engineering' ? 'engineer' : department === 'TRD' ? 'ohe' : 'smt');
+          }}
           solverStatus={solverStatus}
           isBackendConnected={isBackendConnected}
         />
@@ -116,21 +194,21 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
           {(activeTab === 'weekly' || activeTab === 'monthly') && (
             <PlanScheduleView
               horizon={activeTab === 'weekly' ? 'weekly' : 'monthly'}
-              mergedSlots={mergedSlots}
-              defects={defects}
+              mergedSlots={visibleMergedSlots}
+              defects={visibleDefects}
               isLoading={isLoadingSlots || isLoadingDefects}
               onSelectDefect={(def) => setSelectedDefect(def)}
               selectedSectionFilter={selectedSectionFilter}
               onSelectSectionFilter={(sec) => setSelectedSectionFilter(sec)}
               initialViewMode={perspective === 'control' ? 'control' : 'engineer'}
-              departmentPerspective={departmentPerspective}
+              departmentPerspective={activeDepartment}
             />
           )}
 
           {activeTab === 'unscheduled' && (
             <UnscheduledView
               horizon={horizon}
-              classifications={classifications}
+              classifications={visibleClassifications}
               isLoading={isLoadingClassifications}
               onSelectDefect={(def) => setSelectedDefect(def)}
             />
@@ -139,7 +217,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
           {activeTab === 'corridor' && (
             <CorridorMapView
               mergedSlots={mergedSlots}
-              defects={defects}
+              defects={visibleDefects}
+            />
+          )}
+
+          {activeTab === 'audit' && role === 'COA_ADMIN' && (
+            <AuditLogView
+              entries={auditEntries}
+              isLoading={isLoadingAudit}
+              onRefresh={() => { void refetchAudit(); }}
             />
           )}
         </main>
@@ -153,6 +239,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         horizon={horizon}
         schedule={rawSchedule}
         slots={rawSlots}
+        canOverride={role === 'COA_ADMIN'}
         onConfirmSuccess={() => {
           // Re-fetch live schedule + slots from API after a successful confirm.
           // Invalidating both keys ensures the merged slot display (occupied/idle)

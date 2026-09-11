@@ -10,6 +10,7 @@ interface DefectExplainModalProps {
   horizon?: HorizonType;
   schedule?: ScheduledSlot[];
   slots?: BlockSlot[];
+  canOverride?: boolean;
   /** Called after a successful confirm so the parent can re-fetch live schedule data. */
   onConfirmSuccess?: () => void;
 }
@@ -35,6 +36,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   horizon = 'weekly',
   schedule = [],
   slots = [],
+  canOverride = true,
   onConfirmSuccess,
 }) => {
   const [targetSlotId, setTargetSlotId] = useState('');
@@ -331,25 +333,31 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2">
-                <button
-                  id="btn-preview-override"
-                  onClick={handlePreview}
-                  disabled={isPreviewing || !targetSlotId}
-                  className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
-                >
-                  {isPreviewing ? 'Previewing…' : 'Preview override'}
-                </button>
+              {canOverride ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    id="btn-preview-override"
+                    onClick={handlePreview}
+                    disabled={isPreviewing || !targetSlotId}
+                    className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    {isPreviewing ? 'Previewing…' : 'Preview override'}
+                  </button>
 
-                <button
-                  id="btn-confirm-override"
-                  onClick={handleConfirm}
-                  disabled={!confirmEnabled}
-                  className="px-4 py-2 rounded-full bg-[var(--accent-green)] text-white text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
-                >
-                  {isConfirming ? 'Confirming…' : 'Confirm override'}
-                </button>
-              </div>
+                  <button
+                    id="btn-confirm-override"
+                    onClick={handleConfirm}
+                    disabled={!confirmEnabled}
+                    className="px-4 py-2 rounded-full bg-[var(--accent-green)] text-white text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
+                  >
+                    {isConfirming ? 'Confirming…' : 'Confirm override'}
+                  </button>
+                </div>
+              ) : (
+                <div className="inline-flex items-center px-3 py-2 rounded-full bg-[var(--bg-pill)] border border-[var(--border-subtle)] text-[10px] font-mono font-bold text-[var(--text-muted)]">
+                  Read-only role — override controls unavailable
+                </div>
+              )}
             </div>
 
             {preview && (
