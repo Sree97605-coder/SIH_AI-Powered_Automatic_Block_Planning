@@ -33,6 +33,9 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.0"
 
+      - key: PYTHONPATH
+        value: "/app"
+
       # VITE_API_URL is intentionally NOT set here.
       # Empty (unset) → client.ts falls back to '' (same-origin) → fetches
       # /health, /defects, /slots, etc. directly on the same Render URL.

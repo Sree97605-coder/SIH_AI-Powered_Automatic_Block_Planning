@@ -32,13 +32,21 @@ from typing import Any
 
 import pandas as pd
 
-from paths import DATA_DIR, INTEGRATED_DIR, ensure_data_on_path
+try:
+    from src.paths import DATA_DIR, INTEGRATED_DIR, ensure_data_on_path
+except ImportError:  # pragma: no cover - legacy/local fallback
+    from paths import DATA_DIR, INTEGRATED_DIR, ensure_data_on_path
 
 ensure_data_on_path()
 
-from corridor import CORRIDOR, section_by_id
-from load_defects import load_defects
-from section_resolver import resolve_section_id
+try:
+    from src.corridor import CORRIDOR, section_by_id
+    from src.load_defects import load_defects
+    from src.section_resolver import resolve_section_id
+except ImportError:  # pragma: no cover - legacy/local fallback
+    from corridor import CORRIDOR, section_by_id
+    from load_defects import load_defects
+    from section_resolver import resolve_section_id
 
 # Scoring Formula Weights
 WEIGHT_CRITICALITY = 35.0

@@ -27,15 +27,25 @@ from typing import Any
 import pandas as pd
 import pulp
 
-from paths import DATA_DIR, INTEGRATED_DIR, ensure_data_on_path
+try:
+    from src.paths import DATA_DIR, INTEGRATED_DIR, ensure_data_on_path
+except ImportError:  # pragma: no cover - legacy/local fallback
+    from paths import DATA_DIR, INTEGRATED_DIR, ensure_data_on_path
 
 ensure_data_on_path()
 
-from corridor import CORRIDOR, section_by_id
-from load_defects import load_defects
-from load_slots import load_block_slots
-from ml_prioritization import run_prioritization
-from section_resolver import resolve_section_id
+try:
+    from src.corridor import CORRIDOR, section_by_id
+    from src.load_defects import load_defects
+    from src.load_slots import load_block_slots
+    from src.ml_prioritization import run_prioritization
+    from src.section_resolver import resolve_section_id
+except ImportError:  # pragma: no cover - legacy/local fallback
+    from corridor import CORRIDOR, section_by_id
+    from load_defects import load_defects
+    from load_slots import load_block_slots
+    from ml_prioritization import run_prioritization
+    from section_resolver import resolve_section_id
 
 OPTIMIZED_DIR = DATA_DIR / "optimized"
 
