@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
 import { DefectExplainModal, buildOverridePreviewNarrative } from './DefectExplainModal';
 import { PlanScheduleView } from './views/PlanScheduleView';
 import type { AuditLogEntry, Defect, OverridePreviewResponse } from '../../types';
@@ -19,6 +19,10 @@ const defect: Defect = {
   final_priority_score: 83,
   description: 'Test track defect',
 };
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('buildOverridePreviewNarrative', () => {
   it('renders a non-empty lead sentence when defects would be deferred', () => {
@@ -83,7 +87,7 @@ describe('DefectExplainModal', () => {
 });
 
 describe('PlanScheduleView override badges', () => {
-  it('shows the latest override entry for a defect when there are multiple override rows', () => {
+  it('shows the latest override entry for a defect when there are multiple override rows in the same horizon', () => {
     const overrideEntries: AuditLogEntry[] = [
       {
         override_id: 7,
@@ -102,7 +106,7 @@ describe('PlanScheduleView override badges', () => {
       {
         override_id: 8,
         defect_id: 'TMS-001',
-        horizon: 'monthly',
+        horizon: 'weekly',
         original_slot_id: 'SEC-01-0002',
         new_slot_id: 'SEC-01-0009',
         changed_by: 'COA_ADMIN',

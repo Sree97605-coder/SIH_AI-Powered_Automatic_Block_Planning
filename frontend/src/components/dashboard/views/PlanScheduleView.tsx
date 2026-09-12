@@ -186,12 +186,14 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   const PerspectiveIcon = CurrentPerspectiveInfo.icon;
 
   const latestOverrideByDefect = new Map<string, AuditLogEntry>();
-  overrideEntries.forEach((entry) => {
-    const current = latestOverrideByDefect.get(entry.defect_id);
-    if (!current || new Date(entry.timestamp).getTime() > new Date(current.timestamp).getTime()) {
-      latestOverrideByDefect.set(entry.defect_id, entry);
-    }
-  });
+  overrideEntries
+    .filter((entry) => entry.horizon === horizon)
+    .forEach((entry) => {
+      const current = latestOverrideByDefect.get(entry.defect_id);
+      if (!current || new Date(entry.timestamp).getTime() > new Date(current.timestamp).getTime()) {
+        latestOverrideByDefect.set(entry.defect_id, entry);
+      }
+    });
 
   const renderOverrideBadge = (defectId: string) => {
     const overrideEntry = latestOverrideByDefect.get(defectId);
