@@ -7,6 +7,7 @@ import os
 import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
 from contextlib import contextmanager
 from dataclasses import asdict
@@ -15,6 +16,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 
 # Keep API tests out of the production audit log. This must be set before the
 # API module is imported because it resolves OVERRIDE_DB_PATH at import time.
@@ -1490,7 +1492,7 @@ class ClassicalOptimizationTests(unittest.TestCase):
                                     "horizon": "weekly",
                                     "changed_by": "test_officer",
                                     "reason_category": "weather_or_emergency",
-                                    "reason_freetext": "Rollback test",
+                                    "reason_freetext": "Rollback test for storm damage on the night possession window.",
                                 }
                             )
 
@@ -1507,6 +1509,222 @@ class ClassicalOptimizationTests(unittest.TestCase):
                     "between _write_live_schedule and the backup restore would leave the CSV "
                     "in the post-override state with no DB log entry.",
                 )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+
+    def test_defect_explain_modal_has_no_default_reason_selection(self) -> None:
+        """The reason dropdown must remain empty until the user actively selects a category."""
+        modal_path = PROJECT_ROOT / "frontend" / "src" / "components" / "dashboard" / "DefectExplainModal.tsx"
+        source = modal_path.read_text(encoding="utf-8")
+
+        self.assertIn("const [reasonCategory, setReasonCategory] = useState('');", source)
+        self.assertIn("value={reasonCategory}", source)
+        self.assertIn("{ value: '', label: 'Select a reason — required' }", source)
+        self.assertNotIn("setReasonCategory('prioritization_mistake')", source)
+        self.assertNotIn("setReasonCategory('weather_or_emergency')", source)
+        self.assertNotIn("setReasonCategory('emergency_reprioritization')", source)
+
+    def test_confirm_override_rejects_short_p1_justification(self) -> None:
+        """P1-displacing overrides require a real free-text justification of at least 20 characters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                client = TestClient(api.app)
+                token = api.create_access_token("coa.admin", "COA_ADMIN", None)
+                with _patch_section_by_id():
+                    response = client.post(
+                        "/schedule/confirm-override",
+                        json={
+                            "defect_id": "P3-SCHED",
+                            "target_slot_id": "SLOT-A",
+                            "horizon": "weekly",
+                            "changed_by": "test_officer",
+                            "reason_category": "weather_or_emergency",
+                            "reason_freetext": "too short",
+                        },
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("20 characters", response.json()["detail"]["message"].lower())
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+    def test_confirm_override_idempotency_guard_prevents_duplicate_rows(self) -> None:
+        """Two near-simultaneous identical submit attempts must result in exactly one persisted override row."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                payload = {
+                    "defect_id": "P3-SCHED",
+                    "target_slot_id": "SLOT-A",
+                    "horizon": "weekly",
+                    "changed_by": "test_officer",
+                    "reason_category": "weather_or_emergency",
+                    "reason_freetext": "Storm damage required an emergency diversion for the weekend window.",
+                }
+
+                barrier = threading.Barrier(2)
+                results: list[dict[str, object]] = []
+                errors: list[BaseException] = []
+
+                def submit_once() -> None:
+                    try:
+                        barrier.wait()
+                        with _patch_section_by_id():
+                            results.append(api.confirm_override(payload))
+                    except BaseException as exc:  # pragma: no cover - capture the concurrent race for test feedback
+                        errors.append(exc)
+
+                first = threading.Thread(target=submit_once)
+                second = threading.Thread(target=submit_once)
+                first.start()
+                second.start()
+                first.join()
+                second.join()
+
+                db_path = tmp_path / "override_log.db"
+                conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+                try:
+                    rows = conn.execute(
+                        "SELECT defect_id, new_slot_id, changed_by FROM overrides WHERE defect_id = ? ORDER BY override_id",
+                        ("P3-SCHED",),
+                    ).fetchall()
+                finally:
+                    conn.close()
+
+                self.assertFalse(errors, f"Unexpected concurrent submit errors: {errors}")
+                self.assertEqual(len(results), 2, "Both threads should have attempted the same confirm payload")
+                self.assertEqual(len(rows), 1, "Duplicate double-submit must be deduplicated by the idempotency guard")
+                self.assertTrue(all(r.get("message") == "Override confirmed and committed." for r in results), results)
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+    def test_reoverride_adds_previous_override_chain(self) -> None:
+        """A second override on the same defect should keep an explicit chain to the prior log row."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            defects = pd.DataFrame(
+                [
+                    {
+                        "defect_id": "R-1",
+                        "section_id": "SEC-TEST",
+                        "department": "Engineering",
+                        "estimated_duration_hours": 2.0,
+                        "urgency_band": "P2 - Urgent",
+                        "final_priority_score": 70.0,
+                    },
+                    {
+                        "defect_id": "R-2",
+                        "section_id": "SEC-TEST",
+                        "department": "TRD",
+                        "estimated_duration_hours": 1.5,
+                        "urgency_band": "P3 - Planned",
+                        "final_priority_score": 40.0,
+                    },
+                ]
+            )
+            slots = pd.DataFrame(
+                [
+                    {
+                        "slot_id": "SLOT-1",
+                        "section_id": "SEC-TEST",
+                        "start_datetime": "2026-09-07T00:00:00",
+                        "end_datetime": "2026-09-07T03:00:00",
+                        "duration_hours": 3.0,
+                        "is_night_window": True,
+                        "traffic_density": "High",
+                        "source": "Timetable",
+                        "horizon": "weekly",
+                    },
+                    {
+                        "slot_id": "SLOT-2",
+                        "section_id": "SEC-TEST",
+                        "start_datetime": "2026-09-07T03:00:00",
+                        "end_datetime": "2026-09-07T06:00:00",
+                        "duration_hours": 3.0,
+                        "is_night_window": True,
+                        "traffic_density": "High",
+                        "source": "Timetable",
+                        "horizon": "weekly",
+                    },
+                ]
+            )
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+            with _patch_section_by_id():
+                scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
+            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(
+                tmp_path / "optimized" / "weekly_schedule.csv", index=False
+            )
+            unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                first_payload = {
+                    "defect_id": "R-1",
+                    "target_slot_id": "SLOT-2",
+                    "horizon": "weekly",
+                    "changed_by": "officer_a",
+                    "reason_category": "prioritization_mistake",
+                    "reason_freetext": "First override for the schedule correction.",
+                }
+                second_payload = {
+                    "defect_id": "R-1",
+                    "target_slot_id": "SLOT-1",
+                    "horizon": "weekly",
+                    "changed_by": "officer_b",
+                    "reason_category": "missed_bundling_opportunity",
+                    "reason_freetext": "Second override after the current plan changed.",
+                }
+
+                with _patch_section_by_id():
+                    api.confirm_override(first_payload)
+                    api.confirm_override(second_payload)
+
+                conn = sqlite3.connect(f"file:{tmp_path / 'override_log.db'}?mode=ro", uri=True)
+                try:
+                    rows = conn.execute(
+                        "SELECT override_id, defect_id, original_slot_id, new_slot_id, previous_override_id FROM overrides WHERE defect_id = ? ORDER BY override_id",
+                        ("R-1",),
+                    ).fetchall()
+                finally:
+                    conn.close()
+
+                self.assertEqual(len(rows), 2)
+                self.assertIsNotNone(rows[1][4], "The second override should link back to the previous override row")
+                self.assertEqual(rows[1][4], rows[0][0], "previous_override_id must point to the immediately prior override row")
             finally:
                 api.DATA_DIR = original_data_dir
                 api.OPTIMIZED_DIR = original_optimized_dir

@@ -16,6 +16,7 @@ interface DefectExplainModalProps {
 }
 
 const REASON_OPTIONS = [
+  { value: '', label: 'Select a reason — required' },
   { value: 'prioritization_mistake', label: 'Prioritization mistake' },
   { value: 'missed_bundling_opportunity', label: 'Missed bundling opportunity' },
   { value: 'weather_or_emergency', label: 'Weather or emergency' },
@@ -30,6 +31,34 @@ const toAssignedIds = (slot: ScheduledSlot): string[] => {
   return typeof assigned === 'string' ? assigned.replace(/\[|\]|'/g, '').split(',').map(v => v.trim()).filter(Boolean) : [];
 };
 
+export const buildOverridePreviewNarrative = (preview: OverridePreviewResponse | null): { lead: string; followUp: string | null; summaryLabel: string; closing: string } => {
+  if (!preview) {
+    return {
+      lead: '',
+      followUp: null,
+      summaryLabel: 'Overall impact if confirmed:',
+      closing: 'Do you want to proceed with this override?',
+    };
+  }
+
+  const deferredCount = preview.newly_deferred.length;
+  const clearedCount = preview.newly_cleared.length;
+  const lead = deferredCount > 0
+    ? `This override would move ${deferredCount} defect${deferredCount === 1 ? '' : 's'} out of the current plan.`
+    : 'This override would not defer any currently scheduled defect.';
+
+  const followUp = clearedCount > 0
+    ? `It would also clear ${clearedCount} defect${clearedCount === 1 ? '' : 's'} from the queue and make room for the target slot.`
+    : 'No other defects would be cleared by this change.';
+
+  return {
+    lead,
+    followUp,
+    summaryLabel: 'Overall impact if confirmed:',
+    closing: 'Do you want to proceed with this override?',
+  };
+};
+
 export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   defect,
   onClose,
@@ -40,7 +69,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   onConfirmSuccess,
 }) => {
   const [targetSlotId, setTargetSlotId] = useState('');
-  const [reasonCategory, setReasonCategory] = useState(REASON_OPTIONS[0].value);
+  const [reasonCategory, setReasonCategory] = useState('');
   const [reasonFreetext, setReasonFreetext] = useState('');
   const [preview, setPreview] = useState<OverridePreviewResponse | null>(null);
   // Generic error message for 409/network/unexpected errors
@@ -65,7 +94,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     setPreviewError(null);
     setPolicyRejection(null);
     setConfirmMessage(null);
-    setReasonCategory(REASON_OPTIONS[0].value);
+    setReasonCategory('');
     setReasonFreetext('');
     setP1Acknowledged(false);
   }, [defect, schedule, slots]);
@@ -171,6 +200,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     !!preview &&
     preview.feasible &&
     (!preview.p1_displacement || p1Acknowledged);
+  const previewNarrative = buildOverridePreviewNarrative(preview);
 
   return (
     <AnimatePresence>
@@ -278,7 +308,9 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                   className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
                 >
                   {REASON_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value || 'placeholder'} value={option.value} disabled={option.value === '' && !reasonCategory ? false : option.value === ''}>
+                      {option.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -334,24 +366,31 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
               )}
 
               {canOverride ? (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    id="btn-preview-override"
-                    onClick={handlePreview}
-                    disabled={isPreviewing || !targetSlotId}
-                    className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
-                  >
-                    {isPreviewing ? 'Previewing…' : 'Preview override'}
-                  </button>
+                <div className="space-y-3">
+                  {preview && (
+                    <div className="text-center text-[11px] font-mono text-[var(--text-heading)]">
+                      {previewNarrative.closing}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      id="btn-preview-override"
+                      onClick={handlePreview}
+                      disabled={isPreviewing || !targetSlotId || !reasonCategory}
+                      className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
+                    >
+                      {isPreviewing ? 'Previewing…' : 'Preview override'}
+                    </button>
 
-                  <button
-                    id="btn-confirm-override"
-                    onClick={handleConfirm}
-                    disabled={!confirmEnabled}
-                    className="px-4 py-2 rounded-full bg-[var(--accent-green)] text-white text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
-                  >
-                    {isConfirming ? 'Confirming…' : 'Confirm override'}
-                  </button>
+                    <button
+                      id="btn-confirm-override"
+                      onClick={handleConfirm}
+                      disabled={!confirmEnabled || !reasonCategory}
+                      className="px-4 py-2 rounded-full bg-[var(--accent-green)] text-white text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
+                    >
+                      {isConfirming ? 'Confirming…' : 'Confirm override'}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="inline-flex items-center px-3 py-2 rounded-full bg-[var(--bg-pill)] border border-[var(--border-subtle)] text-[10px] font-mono font-bold text-[var(--text-muted)]">
@@ -459,15 +498,19 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
 
                 {preview.metrics_after && (
                   <div>
-                    <div className="text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Before vs after clearance</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
-                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2">
-                        <div className="font-mono font-bold text-[var(--text-heading)]">Before</div>
-                        <div className="font-mono text-[var(--text-muted)]">{JSON.stringify(preview.metrics_before)}</div>
-                      </div>
-                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2">
-                        <div className="font-mono font-bold text-[var(--text-heading)]">After</div>
-                        <div className="font-mono text-[var(--text-muted)]">{JSON.stringify(preview.metrics_after)}</div>
+                    <div className="text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">{previewNarrative.summaryLabel}</div>
+                    <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 text-[11px] text-[var(--text-heading)]">
+                      <p>{previewNarrative.lead}</p>
+                      {previewNarrative.followUp && <p>{previewNarrative.followUp}</p>}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
+                          <div className="font-mono font-bold text-[var(--text-heading)]">Before</div>
+                          <div className="font-mono text-[var(--text-muted)]">{JSON.stringify(preview.metrics_before)}</div>
+                        </div>
+                        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
+                          <div className="font-mono font-bold text-[var(--text-heading)]">After</div>
+                          <div className="font-mono text-[var(--text-muted)]">{JSON.stringify(preview.metrics_after)}</div>
+                        </div>
                       </div>
                     </div>
                   </div>

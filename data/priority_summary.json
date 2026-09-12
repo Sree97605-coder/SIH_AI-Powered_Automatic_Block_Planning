@@ -1,23 +1,23 @@
 {
   "total_defects_evaluated": 52,
   "model_metrics": {
-    "r2_score": 0.9674,
-    "mean_absolute_error": 1.508,
-    "spearman_rank_correlation": 0.9768,
-    "model_type": "XGBoost (XGBRegressor)"
+    "r2_score": 0.9649,
+    "mean_absolute_error": 1.535,
+    "spearman_rank_correlation": 0.9753,
+    "model_type": "Scikit-Learn (GradientBoostingRegressor)"
   },
   "feature_importance": {
-    "asset_impact_num": 0.7781,
-    "criticality_score": 0.1289,
-    "severity_num": 0.0346,
-    "estimated_duration_hours": 0.0179,
-    "section_density_num": 0.0177,
-    "daily_trains": 0.0086,
-    "overdue_days": 0.008,
-    "requires_power_block": 0.0025,
-    "dept_TRD": 0.0014,
-    "is_track_critical_hazard": 0.0011,
-    "dept_Engineering": 0.001,
+    "criticality_score": 0.44,
+    "asset_impact_num": 0.4014,
+    "overdue_days": 0.058,
+    "daily_trains": 0.0331,
+    "severity_num": 0.031,
+    "estimated_duration_hours": 0.0228,
+    "section_density_num": 0.0098,
+    "dept_Engineering": 0.0014,
+    "dept_TRD": 0.0011,
+    "requires_power_block": 0.0006,
+    "is_track_critical_hazard": 0.0006,
     "dept_ST": 0.0001
   },
   "urgency_distribution": {
@@ -28,15 +28,15 @@
   },
   "department_averages": {
     "Engineering": 63.75,
-    "S&T": 62.95,
+    "S&T": 62.93,
     "TRD": 64.79
   },
   "section_averages": {
-    "SEC-01": 66.23,
-    "SEC-02": 64.56,
-    "SEC-03": 60.05,
-    "SEC-04": 55.73,
-    "SEC-05": 68.75
+    "SEC-01": 66.24,
+    "SEC-02": 64.6,
+    "SEC-03": 60.04,
+    "SEC-04": 55.68,
+    "SEC-05": 68.73
   },
   "top_10_prioritized_defects": [
     {
@@ -50,8 +50,8 @@
       "severity": "High",
       "overdue_days": 6,
       "rule_priority_score": 80.5,
-      "ml_priority_score": 79.81999969482422,
-      "final_priority_score": 80.16,
+      "ml_priority_score": 80.22,
+      "final_priority_score": 80.36,
       "final_urgency_band": "P1 - Immediate"
     },
     {
@@ -65,8 +65,8 @@
       "severity": "High",
       "overdue_days": 5,
       "rule_priority_score": 79.69,
-      "ml_priority_score": 79.61000061035156,
-      "final_priority_score": 79.65,
+      "ml_priority_score": 79.58,
+      "final_priority_score": 79.63,
       "final_urgency_band": "P2 - Urgent"
     },
     {
@@ -80,14 +80,14 @@
       "severity": "High",
       "overdue_days": 11,
       "rule_priority_score": 79.19,
-      "ml_priority_score": 78.8499984741211,
-      "final_priority_score": 79.02,
+      "ml_priority_score": 79.08,
+      "final_priority_score": 79.13,
       "final_urgency_band": "P2 - Urgent"
     },
     {
       "final_rank": 4,
       "rule_rank": 4,
-      "ml_rank": 5,
+      "ml_rank": 4,
       "defect_id": "TDMS-002",
       "department": "TRD",
       "section_id": "SEC-01",
@@ -95,14 +95,14 @@
       "severity": "High",
       "overdue_days": 10,
       "rule_priority_score": 78.69,
-      "ml_priority_score": 78.41000366210938,
-      "final_priority_score": 78.55,
+      "ml_priority_score": 78.54,
+      "final_priority_score": 78.62,
       "final_urgency_band": "P2 - Urgent"
     },
     {
       "final_rank": 5,
       "rule_rank": 5,
-      "ml_rank": 4,
+      "ml_rank": 5,
       "defect_id": "TMS-013",
       "department": "Engineering",
       "section_id": "SEC-05",
@@ -110,12 +110,27 @@
       "severity": "High",
       "overdue_days": 2,
       "rule_priority_score": 78.5,
-      "ml_priority_score": 78.52999877929688,
-      "final_priority_score": 78.51,
+      "ml_priority_score": 78.39,
+      "final_priority_score": 78.44,
       "final_urgency_band": "P2 - Urgent"
     },
     {
       "final_rank": 6,
+      "rule_rank": 6,
+      "ml_rank": 7,
+      "defect_id": "TDMS-014",
+      "department": "TRD",
+      "section_id": "SEC-05",
+      "defect_type": "CB trip / protection mal-op",
+      "severity": "High",
+      "overdue_days": 2,
+      "rule_priority_score": 78.19,
+      "ml_priority_score": 78.0,
+      "final_priority_score": 78.1,
+      "final_urgency_band": "P2 - Urgent"
+    },
+    {
+      "final_rank": 7,
       "rule_rank": 7,
       "ml_rank": 6,
       "defect_id": "SMMS-012",
@@ -125,14 +140,14 @@
       "severity": "High",
       "overdue_days": 1,
       "rule_priority_score": 78.0,
-      "ml_priority_score": 78.19999694824219,
-      "final_priority_score": 78.1,
+      "ml_priority_score": 78.09,
+      "final_priority_score": 78.04,
       "final_urgency_band": "P2 - Urgent"
     },
     {
-      "final_rank": 7,
+      "final_rank": 8,
       "rule_rank": 7,
-      "ml_rank": 7,
+      "ml_rank": 8,
       "defect_id": "TMS-012",
       "department": "Engineering",
       "section_id": "SEC-05",
@@ -140,44 +155,14 @@
       "severity": "High",
       "overdue_days": 8,
       "rule_priority_score": 78.0,
-      "ml_priority_score": 78.02999877929688,
-      "final_priority_score": 78.01,
-      "final_urgency_band": "P2 - Urgent"
-    },
-    {
-      "final_rank": 8,
-      "rule_rank": 6,
-      "ml_rank": 9,
-      "defect_id": "TDMS-014",
-      "department": "TRD",
-      "section_id": "SEC-05",
-      "defect_type": "CB trip / protection mal-op",
-      "severity": "High",
-      "overdue_days": 2,
-      "rule_priority_score": 78.19,
-      "ml_priority_score": 77.79000091552734,
-      "final_priority_score": 77.99,
+      "ml_priority_score": 77.96,
+      "final_priority_score": 77.98,
       "final_urgency_band": "P2 - Urgent"
     },
     {
       "final_rank": 9,
-      "rule_rank": 10,
-      "ml_rank": 8,
-      "defect_id": "TDMS-001",
-      "department": "TRD",
-      "section_id": "SEC-01",
-      "defect_type": "Section insulator defect",
-      "severity": "High",
-      "overdue_days": 7,
-      "rule_priority_score": 77.19,
-      "ml_priority_score": 77.93000030517578,
-      "final_priority_score": 77.56,
-      "final_urgency_band": "P2 - Urgent"
-    },
-    {
-      "final_rank": 10,
       "rule_rank": 9,
-      "ml_rank": 11,
+      "ml_rank": 10,
       "defect_id": "SMMS-002",
       "department": "S&T",
       "section_id": "SEC-01",
@@ -185,8 +170,23 @@
       "severity": "High",
       "overdue_days": 9,
       "rule_priority_score": 77.88,
-      "ml_priority_score": 76.75,
-      "final_priority_score": 77.32,
+      "ml_priority_score": 77.42,
+      "final_priority_score": 77.65,
+      "final_urgency_band": "P2 - Urgent"
+    },
+    {
+      "final_rank": 10,
+      "rule_rank": 10,
+      "ml_rank": 9,
+      "defect_id": "TDMS-001",
+      "department": "TRD",
+      "section_id": "SEC-01",
+      "defect_type": "Section insulator defect",
+      "severity": "High",
+      "overdue_days": 7,
+      "rule_priority_score": 77.19,
+      "ml_priority_score": 77.79,
+      "final_priority_score": 77.49,
       "final_urgency_band": "P2 - Urgent"
     }
   ]

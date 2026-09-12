@@ -170,6 +170,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
               onSelectSectionFilter={(sec) => setSelectedSectionFilter(sec)}
               initialViewMode={perspective === 'control' ? 'control' : 'engineer'}
               departmentPerspective={activeDepartment}
+              overrideEntries={auditEntries}
             />
           )}
 

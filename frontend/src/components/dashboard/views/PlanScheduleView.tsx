@@ -12,7 +12,7 @@ import {
   Shield,
   Info,
 } from 'lucide-react';
-import { HorizonType, Defect, DepartmentType } from '../../../types';
+import { HorizonType, Defect, DepartmentType, AuditLogEntry } from '../../../types';
 import { MergedSlotDisplay } from '../../../api/idleCapacity';
 import { CORRIDOR_DATA, DEPARTMENTS_INFO, SYSTEM_META } from '../../../config/constants';
 
@@ -26,6 +26,7 @@ interface PlanScheduleViewProps {
   onSelectSectionFilter?: (secId: string) => void;
   initialViewMode?: 'control' | 'engineer';
   departmentPerspective?: 'ALL' | 'Engineering' | 'TRD' | 'S&T';
+  overrideEntries?: AuditLogEntry[];
 }
 
 export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
@@ -37,6 +38,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   onSelectSectionFilter,
   initialViewMode = 'control',
   departmentPerspective = 'ALL',
+  overrideEntries = [],
 }) => {
   const [viewMode, setViewMode] = useState<'control' | 'engineer'>(initialViewMode);
   const [activeDept, setActiveDept] = useState<DepartmentType>(departmentPerspective);
@@ -182,6 +184,29 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
 
   const CurrentPerspectiveInfo = perspectiveExplainer[activeDept];
   const PerspectiveIcon = CurrentPerspectiveInfo.icon;
+
+  const latestOverrideByDefect = new Map<string, AuditLogEntry>();
+  overrideEntries.forEach((entry) => {
+    const current = latestOverrideByDefect.get(entry.defect_id);
+    if (!current || new Date(entry.timestamp).getTime() > new Date(current.timestamp).getTime()) {
+      latestOverrideByDefect.set(entry.defect_id, entry);
+    }
+  });
+
+  const renderOverrideBadge = (defectId: string) => {
+    const overrideEntry = latestOverrideByDefect.get(defectId);
+    if (!overrideEntry) return null;
+
+    const tooltip = `${overrideEntry.reason_category} • ${overrideEntry.changed_by} • ${overrideEntry.new_slot_id}`;
+    return (
+      <span
+        title={tooltip}
+        className="inline-flex items-center rounded-full border border-[var(--accent-amber-border)] bg-[var(--accent-amber-bg)] px-1.5 py-0.5 text-[9px] font-mono font-bold text-[var(--accent-amber)]"
+      >
+        OVERRIDDEN
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -508,6 +533,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                                   title="Click to view explainability details"
                                 >
                                   <span>{id}</span>
+                                  {renderOverrideBadge(id)}
                                   <Eye className="w-2.5 h-2.5" />
                                 </button>
                               ))}
@@ -600,7 +626,10 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                         onClick={() => onSelectDefect(defect)}
                       >
                         <td className="py-2.5 font-bold text-[var(--accent-amber)]">
-                          {defect.defect_id}
+                          <div className="flex items-center gap-2">
+                            <span>{defect.defect_id}</span>
+                            {renderOverrideBadge(defect.defect_id)}
+                          </div>
                         </td>
                         <td className="py-2.5 text-[var(--text-heading)]">
                           <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border mr-1.5 ${deptBadge}`}>
