@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -30,6 +30,9 @@ OPTIMIZED_DIR = DATA_DIR / "optimized"
 OVERRIDE_DB_PATH = Path(os.environ.get("OVERRIDE_DB_PATH", "override_log.db"))
 if not OVERRIDE_DB_PATH.is_absolute():
     OVERRIDE_DB_PATH = PROJECT_ROOT / OVERRIDE_DB_PATH
+CRIS_PENDING_DB_PATH = Path(os.environ.get("CRIS_PENDING_DB_PATH", "cris_pending_defects.db"))
+if not CRIS_PENDING_DB_PATH.is_absolute():
+    CRIS_PENDING_DB_PATH = PROJECT_ROOT / CRIS_PENDING_DB_PATH
 
 VALID_REASON_CATEGORIES = {
     "prioritization_mistake": "Prioritization mistake",
@@ -98,6 +101,290 @@ def _add_source_system(df: pd.DataFrame) -> pd.DataFrame:
     if "source_system" not in enriched.columns:
         enriched["source_system"] = enriched["defect_id"].astype(str).str.extract(r"^(TMS|SMMS|TDMS)-", expand=False)
     return enriched
+
+
+def _get_real_defect_schema() -> list[str]:
+    schema_path = DATA_DIR / "prioritized_defects.csv"
+    if schema_path.exists():
+        try:
+            return list(pd.read_csv(schema_path, nrows=0).columns)
+        except Exception:
+            pass
+    return [
+        "defect_id",
+        "department",
+        "location",
+        "section_id",
+        "section_name",
+        "defect_type",
+        "severity",
+        "overdue_days",
+        "estimated_duration_hours",
+        "criticality_score",
+        "asset_impact",
+        "description",
+        "source_system",
+    ]
+
+
+def _normalize_ingest_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Request body must be a JSON object.")
+
+    defect_id = str(payload.get("defect_id", "")).strip()
+    if not defect_id:
+        raise HTTPException(status_code=400, detail="defect_id is required.")
+
+    required_fields = [
+        "department",
+        "location",
+        "section_id",
+        "section_name",
+        "defect_type",
+        "severity",
+        "overdue_days",
+        "estimated_duration_hours",
+        "criticality_score",
+        "asset_impact",
+        "description",
+    ]
+    missing = [field for field in required_fields if payload.get(field) in (None, "")]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing)}.")
+
+    department = str(payload["department"]).strip()
+    location = str(payload["location"]).strip()
+    section_id = str(payload["section_id"]).strip()
+    section_name = str(payload["section_name"]).strip()
+    defect_type = str(payload["defect_type"]).strip()
+    severity = str(payload["severity"]).strip()
+    asset_impact = str(payload["asset_impact"]).strip()
+    description = str(payload["description"]).strip()
+    if not all([department, location, section_id, section_name, defect_type, severity, asset_impact, description]):
+        raise HTTPException(status_code=400, detail="All defect fields must be non-empty strings.")
+
+    try:
+        overdue_days = int(payload["overdue_days"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="overdue_days must be an integer.") from None
+
+    try:
+        estimated_duration_hours = float(payload["estimated_duration_hours"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="estimated_duration_hours must be numeric.") from None
+
+    try:
+        criticality_score = int(payload["criticality_score"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="criticality_score must be an integer.") from None
+
+    source_system = str(payload.get("source_system") or defect_id.split("-")[0]).strip() or "TMS"
+    if source_system not in {"TMS", "SMMS", "TDMS"}:
+        source_system = defect_id.split("-")[0] if defect_id.split("-")[0] in {"TMS", "SMMS", "TDMS"} else "TMS"
+
+    normalized = {
+        "defect_id": defect_id,
+        "department": department,
+        "location": location,
+        "section_id": section_id,
+        "section_name": section_name,
+        "defect_type": defect_type,
+        "severity": severity,
+        "overdue_days": overdue_days,
+        "estimated_duration_hours": round(estimated_duration_hours, 2),
+        "criticality_score": criticality_score,
+        "asset_impact": asset_impact,
+        "description": description,
+        "source_system": source_system,
+    }
+
+    schema = _get_real_defect_schema()
+    for field in schema:
+        if field not in normalized:
+            normalized[field] = None
+    return normalized
+
+
+def _append_defect_to_master_dataset(defect_row: dict[str, Any]) -> None:
+    path = DATA_DIR / "prioritized_defects.csv"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    schema = _get_real_defect_schema()
+
+    if path.exists() and path.stat().st_size > 0:
+        df = pd.read_csv(path)
+    else:
+        df = pd.DataFrame(columns=schema)
+
+    if "defect_id" not in df.columns:
+        df["defect_id"] = pd.Series(dtype="object")
+
+    normalized_row = {field: defect_row.get(field) for field in schema}
+    defect_id = str(normalized_row.get("defect_id", "")).strip()
+    if defect_id:
+        matching = df["defect_id"].astype(str).str.strip() == defect_id
+        if matching.any():
+            for field in schema:
+                df.loc[matching, field] = normalized_row.get(field)
+            df = df.reindex(columns=schema)
+            df.to_csv(path, index=False)
+            return
+
+    df = pd.concat([df, pd.DataFrame([normalized_row])], ignore_index=True)
+    df = df.reindex(columns=schema)
+    df.to_csv(path, index=False)
+
+
+def _write_system_event(
+    conn: sqlite3.Connection,
+    event_type: str,
+    defect_id: str,
+    *,
+    slot_id: str | None = None,
+    horizon: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS system_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            defect_id TEXT NOT NULL,
+            slot_id TEXT,
+            horizon TEXT,
+            created_at TEXT NOT NULL,
+            payload_json TEXT
+        )
+        """
+    )
+    conn.execute(
+        "INSERT INTO system_events (event_type, defect_id, slot_id, horizon, created_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)",
+        (
+            event_type,
+            defect_id,
+            slot_id,
+            horizon,
+            datetime.now(timezone.utc).isoformat(),
+            json.dumps(payload or {}, sort_keys=True),
+        ),
+    )
+    conn.commit()
+
+
+def _find_compatible_slot_for_defect(normalized: dict[str, Any], horizons: list[str] | None = None) -> tuple[str | None, str | None]:
+    for horizon in horizons or ["weekly", "monthly"]:
+        defects_df, slots_df, schedule_df = _load_live_state(horizon)
+        if slots_df.empty:
+            continue
+        slot_lookup, _ = _schedule_lookup(schedule_df)
+        best_slot_id: str | None = None
+        best_excess = None
+        required_hours = float(normalized.get("estimated_duration_hours", 0) or 0.0)
+        if required_hours <= 0:
+            continue
+
+        for _, slot_row in slots_df.iterrows():
+            if str(slot_row.get("section_id", "")).strip() != str(normalized.get("section_id", "")).strip():
+                continue
+            slot_id = str(slot_row.get("slot_id", "")).strip()
+            if not slot_id:
+                continue
+            remaining_hours = _slot_remaining_hours(slot_id, slots_df, slot_lookup, defects_df)
+            if remaining_hours < required_hours:
+                continue
+            excess = remaining_hours - required_hours
+            if best_slot_id is None or excess < (best_excess if best_excess is not None else float("inf")):
+                best_slot_id = slot_id
+                best_excess = excess
+
+        if best_slot_id is not None:
+            return horizon, best_slot_id
+    return None, None
+
+
+def _assign_defect_to_schedule(horizon: str, slot_id: str, defect_row: dict[str, Any]) -> None:
+    schedule_path = OPTIMIZED_DIR / f"{horizon}_schedule.csv"
+    schedule_df = pd.read_csv(schedule_path) if schedule_path.exists() else pd.DataFrame()
+    if schedule_df.empty:
+        return
+
+    mask = schedule_df["slot_id"].astype(str).str.strip() == slot_id
+    if not mask.any():
+        return
+
+    row_index = schedule_df.index[mask][0]
+    assigned_ids = _parse_assigned_ids(schedule_df.at[row_index, "assigned_defect_ids"])
+    defect_id = str(defect_row.get("defect_id", "")).strip()
+    if defect_id and defect_id not in assigned_ids:
+        assigned_ids.append(defect_id)
+
+    schedule_df.at[row_index, "assigned_defect_ids"] = str(assigned_ids)
+    schedule_df.at[row_index, "assigned_defect_count"] = len(assigned_ids)
+
+    departments = []
+    if not schedule_df.empty:
+        all_defects = _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects")
+        for did in assigned_ids:
+            def_row = all_defects[all_defects["defect_id"].astype(str).str.strip() == did]
+            if not def_row.empty:
+                department = str(def_row.iloc[0].get("department", "")).strip()
+                if department:
+                    departments.append(department)
+    schedule_df.at[row_index, "departments_involved"] = str(sorted(set(departments)))
+
+    duration_hours = float(schedule_df.at[row_index, "duration_hours"] or 0.0)
+    total_duration = 0.0
+    for did in assigned_ids:
+        def_row = _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects")
+        matches = def_row[def_row["defect_id"].astype(str).str.strip() == did]
+        if not matches.empty:
+            total_duration += float(matches.iloc[0].get("estimated_duration_hours", 0.0) or 0.0)
+    schedule_df.at[row_index, "total_defect_duration"] = round(total_duration, 2)
+    schedule_df.at[row_index, "max_defect_duration"] = round(max([float(d.get("estimated_duration_hours", 0.0) or 0.0) for d in _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects").to_dict(orient="records") if str(d.get("defect_id", "")).strip() in assigned_ids], default=0.0), 2)
+    if duration_hours > 0:
+        schedule_df.at[row_index, "duration_utilization_pct"] = round((total_duration / duration_hours) * 100.0, 1)
+    else:
+        schedule_df.at[row_index, "duration_utilization_pct"] = 0.0
+
+    unscheduled_path = OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv"
+    if unscheduled_path.exists():
+        unscheduled_df = pd.read_csv(unscheduled_path)
+        unscheduled_df = unscheduled_df[~unscheduled_df["defect_id"].astype(str).str.strip().eq(defect_id)].copy()
+        unscheduled_df.to_csv(unscheduled_path, index=False)
+
+    schedule_df.to_csv(schedule_path, index=False)
+
+
+def _ensure_cris_pending_db() -> sqlite3.Connection:
+    CRIS_PENDING_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(CRIS_PENDING_DB_PATH))
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pending_defects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            defect_id TEXT UNIQUE NOT NULL,
+            status TEXT NOT NULL DEFAULT 'PENDING_REOPTIMIZATION',
+            source_system TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            payload_json TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS system_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            defect_id TEXT NOT NULL,
+            slot_id TEXT,
+            horizon TEXT,
+            created_at TEXT NOT NULL,
+            payload_json TEXT
+        )
+        """
+    )
+    conn.commit()
+    return conn
 
 
 def _filter_by_department(df: pd.DataFrame, user: CurrentUser) -> pd.DataFrame:
@@ -370,12 +657,42 @@ def _ensure_override_db() -> sqlite3.Connection:
             reason_freetext TEXT,
             learnable INTEGER NOT NULL,
             newly_deferred_ids TEXT,
-            priority_alert INTEGER NOT NULL
+            priority_alert INTEGER NOT NULL,
+            previous_override_id INTEGER NULL
         )
         """
     )
+    columns = conn.execute("PRAGMA table_info(overrides)").fetchall()
+    existing = {row[1] for row in columns}
+    if "previous_override_id" not in existing:
+        conn.execute("ALTER TABLE overrides ADD COLUMN previous_override_id INTEGER NULL")
     conn.commit()
     return conn
+
+
+def _get_previous_override_id(conn: sqlite3.Connection, defect_id: str) -> int | None:
+    row = conn.execute(
+        "SELECT override_id FROM overrides WHERE defect_id = ? ORDER BY override_id DESC LIMIT 1",
+        (defect_id,),
+    ).fetchone()
+    return int(row[0]) if row else None
+
+
+def _duplicate_override_recent(conn: sqlite3.Connection, defect_id: str, target_slot_id: str, changed_by: str) -> sqlite3.Row | None:
+    cutoff = (datetime.now(timezone.utc) - __import__("datetime").timedelta(seconds=5)).isoformat()
+    row = conn.execute(
+        """
+        SELECT * FROM overrides
+        WHERE defect_id = ?
+          AND new_slot_id = ?
+          AND changed_by = ?
+          AND timestamp >= ?
+        ORDER BY override_id DESC
+        LIMIT 1
+        """,
+        (defect_id, target_slot_id, changed_by, cutoff),
+    ).fetchone()
+    return row
 
 
 def _write_live_schedule(horizon: str, scheduled_slots: list[Any], unscheduled_df: pd.DataFrame) -> None:
@@ -425,6 +742,108 @@ def get_audit_log(
         return [dict(row) for row in rows]
     finally:
         connection.close()
+
+
+@app.get("/defects/pending")
+def get_pending_defects() -> list[dict[str, Any]]:
+    conn = _ensure_cris_pending_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, defect_id, status, source_system, created_at, updated_at, payload_json FROM pending_defects ORDER BY created_at DESC"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        payload = json.loads(row[6]) if row[6] else {}
+        results.append(
+            {
+                "id": row[0],
+                "defect_id": row[1],
+                "status": row[2],
+                "source_system": row[3],
+                "created_at": row[4],
+                "updated_at": row[5],
+                "payload": payload,
+            }
+        )
+    return results
+
+
+@app.post("/defects/ingest")
+def ingest_defect(payload: dict[str, Any], response: Response) -> dict[str, Any]:
+    normalized = _normalize_ingest_payload(payload)
+    defect_id = str(normalized["defect_id"]).strip()
+    now = datetime.now(timezone.utc).isoformat()
+
+    conn = _ensure_cris_pending_db()
+    try:
+        existing = conn.execute(
+            "SELECT payload_json FROM pending_defects WHERE defect_id = ?",
+            (defect_id,),
+        ).fetchone()
+        if existing is not None:
+            existing_payload = json.loads(existing[0]) if existing[0] else {}
+            if existing_payload == normalized:
+                response.status_code = 200
+                return {
+                    "defect_id": defect_id,
+                    "status": "PENDING_REOPTIMIZATION",
+                    "duplicate": True,
+                    "message": "Defect is already pending re-optimization.",
+                }
+
+            conn.execute(
+                "UPDATE pending_defects SET status = ?, updated_at = ?, payload_json = ? WHERE defect_id = ?",
+                ("PENDING_REOPTIMIZATION", now, json.dumps(normalized, sort_keys=True), defect_id),
+            )
+            conn.commit()
+            response.status_code = 200
+            return {
+                "defect_id": defect_id,
+                "status": "PENDING_REOPTIMIZATION",
+                "duplicate": False,
+                "message": "Defect pending re-optimization was refreshed.",
+            }
+
+        horizon, slot_id = _find_compatible_slot_for_defect(normalized)
+        if horizon and slot_id:
+            _append_defect_to_master_dataset(normalized)
+            _assign_defect_to_schedule(horizon, slot_id, normalized)
+            _write_system_event(conn, "SYSTEM_INCREMENTAL_INSERT", defect_id, slot_id=slot_id, horizon=horizon, payload=normalized)
+            response.status_code = 200
+            return {
+                "defect_id": defect_id,
+                "status": "SCHEDULED",
+                "duplicate": False,
+                "slot_id": slot_id,
+                "horizon": horizon,
+                "message": f"New defect {defect_id} scheduled immediately into slot {slot_id} ({horizon}) — no full re-optimization needed.",
+            }
+
+        conn.execute(
+            "INSERT INTO pending_defects (defect_id, status, source_system, created_at, updated_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                defect_id,
+                "PENDING_REOPTIMIZATION",
+                normalized.get("source_system"),
+                now,
+                now,
+                json.dumps(normalized, sort_keys=True),
+            ),
+        )
+        conn.commit()
+        response.status_code = 201
+    finally:
+        conn.close()
+
+    return {
+        "defect_id": defect_id,
+        "status": "PENDING_REOPTIMIZATION",
+        "duplicate": False,
+        "message": "Defect queued for re-optimization.",
+    }
 
 
 @app.get("/defects")
@@ -635,6 +1054,15 @@ def confirm_override(
     if reason_freetext is not None:
         reason_freetext = str(reason_freetext).strip()
 
+    if preview.get("p1_displacement") and (not reason_freetext or len(reason_freetext) < 20):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "reason": "p1_justification_required",
+                "message": "P1-displacing overrides require a justification with at least 20 characters.",
+            },
+        )
+
     learnable = LEARNABLE_REASON_FLAGS[reason_category]
     now = datetime.now(timezone.utc).isoformat()
 
@@ -644,11 +1072,24 @@ def confirm_override(
     schedule_backup = schedule_path.read_text(encoding="utf-8") if schedule_path.exists() else None
     unscheduled_backup = unscheduled_path.read_text(encoding="utf-8") if unscheduled_path.exists() else None
 
+    conn = _ensure_override_db()
     try:
-        _write_live_schedule(preview["horizon"], preview["scheduled_slots"], preview["unscheduled_df"])
+        conn.execute("BEGIN IMMEDIATE")
+        duplicate = _duplicate_override_recent(conn, preview["defect_id"], preview["target_slot_id"], changed_by)
+        if duplicate is not None:
+            conn.rollback()
+            return {
+                "message": "Override confirmed and committed.",
+                "horizon": preview["horizon"],
+                "defect_id": preview["defect_id"],
+                "target_slot_id": preview["target_slot_id"],
+                "schedule": _clean_frame(pd.DataFrame([slot.__dict__ for slot in preview["scheduled_slots"]])),
+                "unscheduled": _clean_frame(preview["unscheduled_df"]),
+            }
 
-        conn = _ensure_override_db()
         try:
+            _write_live_schedule(preview["horizon"], preview["scheduled_slots"], preview["unscheduled_df"])
+            previous_override_id = _get_previous_override_id(conn, preview["defect_id"])
             conn.execute(
                 """
                 INSERT INTO overrides (
@@ -662,8 +1103,9 @@ def confirm_override(
                     reason_freetext,
                     learnable,
                     newly_deferred_ids,
-                    priority_alert
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    priority_alert,
+                    previous_override_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     preview["defect_id"],
@@ -677,20 +1119,21 @@ def confirm_override(
                     learnable,
                     json.dumps(preview["newly_deferred"]),
                     int(preview["priority_alert"]),
+                    previous_override_id,
                 ),
             )
             conn.commit()
         except Exception:
             conn.rollback()
             raise
-        finally:
-            conn.close()
     except Exception as exc:
         if schedule_backup is not None:
             schedule_path.write_text(schedule_backup, encoding="utf-8")
         if unscheduled_backup is not None:
             unscheduled_path.write_text(unscheduled_backup, encoding="utf-8")
         raise exc
+    finally:
+        conn.close()
 
     return {
         "message": "Override confirmed and committed.",

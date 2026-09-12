@@ -128,6 +128,22 @@ export const api = {
     }
   },
 
+  getPendingDefects: async (): Promise<Array<{ defect_id: string; status: string; source_system?: string; payload?: Record<string, unknown> }>> => {
+    try {
+      const data = await request<Array<{ defect_id: string; status: string; source_system?: string; payload?: Record<string, unknown> }>>('/defects/pending');
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
+  simulateDefect: async (payload: Record<string, unknown>): Promise<{ defect_id: string; status: string; duplicate: boolean; message?: string; slot_id?: string; horizon?: string }> => {
+    return request<{ defect_id: string; status: string; duplicate: boolean; message?: string; slot_id?: string; horizon?: string }>('/defects/ingest', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   getSlots: async (horizon?: HorizonType): Promise<BlockSlot[]> => {
     const query = horizon ? `?horizon=${horizon}` : '';
     try {

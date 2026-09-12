@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Shield, User, Calendar, Zap, Radio, Sun, Moon } from 'lucide-react';
+import { ChevronDown, Shield, User, Calendar, Zap, Radio, Sun, Moon, PlusCircle } from 'lucide-react';
 import { DepartmentType, HorizonType, PerspectiveType, RoleType } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
 import { SYSTEM_META } from '../../config/constants';
+import { api } from '../../api/client';
 
 interface TopBarProps {
   horizon: HorizonType;
@@ -28,7 +29,42 @@ export const TopBar: React.FC<TopBarProps> = ({
   const isDark = theme === 'dark';
   const isOptimal = solverStatus.toLowerCase() === 'optimal';
   const [isPerspectiveMenuOpen, setIsPerspectiveMenuOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const perspectiveMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleSimulateCrisDefect = async () => {
+    if (role !== 'COA_ADMIN') return;
+    setIsSimulating(true);
+    try {
+      const payload = {
+        defect_id: `TMS-CRIS-${Date.now()}`,
+        department: 'Engineering',
+        location: 'SEC-01 / km 5.4 (CNB–CNBI Up)',
+        section_id: 'SEC-01',
+        section_name: 'Kanpur Central – Bindki Road',
+        defect_type: 'Rail fracture (suspect)',
+        severity: 'High',
+        overdue_days: 2,
+        estimated_duration_hours: 4,
+        criticality_score: 9,
+        asset_impact: 'High',
+        description: 'CRIS simulated defect queued for re-optimization.',
+        source_system: 'TMS',
+      };
+      const result = await api.simulateDefect(payload);
+      if (result.status === 'SCHEDULED' && result.slot_id && result.horizon) {
+        alert(`New defect ${result.defect_id} scheduled immediately into slot ${result.slot_id} (${result.horizon}) — no full re-optimization needed.`);
+      } else if (result.duplicate) {
+        alert(`Duplicate CRIS defect queued: ${result.defect_id}`);
+      } else {
+        alert(`Queued ${result.defect_id} for re-optimization.`);
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to simulate CRIS defect.');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   useEffect(() => {
     const handlePointerDownOutside = (event: PointerEvent) => {
@@ -139,6 +175,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="text-xs font-mono font-bold text-[var(--text-heading)]">{role.replace('_', ' ')}</span>
           {role === 'DEPT_ENGINEER' && <span className="border-l border-[var(--border-subtle)] pl-2 text-xs font-mono font-bold text-[var(--accent-steel)]">{department}</span>}
         </div>
+
+        {role === 'COA_ADMIN' && (
+          <button
+            type="button"
+            onClick={handleSimulateCrisDefect}
+            disabled={isSimulating}
+            className="flex items-center gap-2 bg-[var(--accent-amber)] text-[var(--text-inverse)] border border-[var(--accent-amber-border)] px-3 py-1.5 rounded-full text-[10px] font-mono font-bold shadow-[var(--shadow-glow-amber)] transition-all cursor-pointer disabled:opacity-60"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            <span>{isSimulating ? 'Queuing…' : 'Simulate CRIS Defect'}</span>
+          </button>
+        )}
 
         {/* Perspective Switcher Dropdown (With OHE & SSMT Support) */}
         <div className="relative" ref={perspectiveMenuRef}>
