@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Shield, User, Calendar, Zap, Radio, Sun, Moon, PlusCircle } from 'lucide-react';
+import { ChevronDown, Shield, User, Calendar, Zap, Radio, Sun, Moon, PlusCircle, LogOut } from 'lucide-react';
 import { DepartmentType, HorizonType, PerspectiveType, RoleType } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
 import { SYSTEM_META } from '../../config/constants';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 interface TopBarProps {
   horizon: HorizonType;
@@ -26,6 +27,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   department,
 }) => {
   const { theme, toggleTheme } = useTheme();
+  const { logout } = useAuth();
   const isDark = theme === 'dark';
   const isOptimal = solverStatus.toLowerCase() === 'optimal';
   const [isPerspectiveMenuOpen, setIsPerspectiveMenuOpen] = useState(false);
@@ -175,6 +177,15 @@ export const TopBar: React.FC<TopBarProps> = ({
           <span className="text-xs font-mono font-bold text-[var(--text-heading)]">{role.replace('_', ' ')}</span>
           {role === 'DEPT_ENGINEER' && <span className="border-l border-[var(--border-subtle)] pl-2 text-xs font-mono font-bold text-[var(--accent-steel)]">{department}</span>}
         </div>
+
+        <button
+          type="button"
+          onClick={() => { void logout(); }}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[10px] font-mono font-bold text-[var(--text-heading)] hover:border-[var(--accent-red)] hover:text-[var(--accent-red)] transition-colors cursor-pointer"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Log out
+        </button>
 
         {role === 'COA_ADMIN' && (
           <button

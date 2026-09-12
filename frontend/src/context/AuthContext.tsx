@@ -11,9 +11,11 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function clearLegacyRoleState(): void {
+export function clearLegacyRoleState(): void {
   sessionStorage.removeItem('role');
   sessionStorage.removeItem('department');
+  sessionStorage.removeItem('access_token');
+  sessionStorage.removeItem('token');
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -26,24 +28,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       clearLegacyRoleState();
     });
+
+    const restoreSession = async () => {
+      try {
+        const restoredUser = await api.getCurrentUser();
+        setUser(restoredUser);
+      } catch {
+        setUser(null);
+        setAccessToken(null);
+      }
+    };
+
+    void restoreSession();
     return () => setUnauthorizedHandler(null);
   }, []);
 
   const login = async (username: string, password: string) => {
     const response = await api.login(username, password);
-    // Token stays in memory only: refreshes end the session, avoiding persistent XSS exposure.
-    setAccessToken(response.access_token);
     setUser(response.user);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    clearLegacyRoleState();
     setAccessToken(null);
     setUser(null);
-    clearLegacyRoleState();
+    try {
+      await api.logout();
+    } catch {
+      // Ignore backend logout failures here so the app still ends the session instantly.
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(getAccessToken() && user), login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(user), login, logout }}>
       {children}
     </AuthContext.Provider>
   );

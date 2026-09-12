@@ -13,7 +13,7 @@ import {
   VERIFIED_BENCHMARKS,
   UNSCHEDULED_MONTHLY_CONTENTION,
 } from '../config/constants';
-import { getAccessToken, notifyUnauthorized } from '../auth/authStore';
+import { getAccessToken, notifyUnauthorized, setAccessToken } from '../auth/authStore';
 
 // Empty string = same-origin (production single-service on Render).
 // Override with VITE_API_URL only when running frontend against a separate backend.
@@ -48,12 +48,15 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const headers = new Headers(options?.headers);
   headers.set('Accept', 'application/json');
-  headers.set('Content-Type', 'application/json');
+  if (!(options?.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
   const token = getAccessToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
   try {
     const res = await fetch(url, {
       ...options,
+      credentials: 'include',
       headers,
     });
 
@@ -91,10 +94,26 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   login: async (username: string, password: string): Promise<LoginResponse> => {
-    return request<LoginResponse>('/auth/login', {
+    const response = await request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
+    setAccessToken(response.access_token);
+    return response;
+  },
+
+  getCurrentUser: async (): Promise<AuthUser> => {
+    const response = await request<{ username: string; role: AuthUser['role']; department: AuthUser['department'] }>('/auth/me');
+    return {
+      username: response.username,
+      role: response.role,
+      department: response.department,
+    };
+  },
+
+  logout: async (): Promise<void> => {
+    await request<{ status: string }>('/auth/logout', { method: 'POST' });
+    setAccessToken(null);
   },
 
   getHealth: async (): Promise<{ status: string }> => {
