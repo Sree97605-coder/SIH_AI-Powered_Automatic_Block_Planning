@@ -2,7 +2,7 @@
   "weekly_optimization": {
     "horizon": "weekly",
     "solver_status": "Optimal",
-    "solver_time_seconds": 1.318,
+    "solver_time_seconds": 1.098,
     "total_defects_in_scope": 52,
     "total_defects_scheduled": 50,
     "defects_unscheduled_count": 2,
@@ -24,14 +24,14 @@
     "bundled_slots_count": 13,
     "bundled_defects_count": 26,
     "bundling_rate_pct": 52.0,
-    "total_priority_value_scheduled": 3217.4,
+    "total_priority_value_scheduled": 3217.85,
     "priority_clearance_pct": 97.0,
     "feasibility_violations": 0
   },
   "monthly_optimization": {
     "horizon": "monthly",
     "solver_status": "Optimal",
-    "solver_time_seconds": 0.987,
+    "solver_time_seconds": 0.762,
     "total_defects_in_scope": 52,
     "total_defects_scheduled": 52,
     "defects_unscheduled_count": 0,
@@ -48,20 +48,20 @@
     "requires_extended_block_p1": 0,
     "requires_extended_block_p2": 0,
     "total_available_slots": 56,
-    "slots_utilized_count": 37,
-    "slot_utilization_pct": 66.1,
-    "bundled_slots_count": 15,
-    "bundled_defects_count": 30,
-    "bundling_rate_pct": 57.7,
-    "total_priority_value_scheduled": 3316.49,
+    "slots_utilized_count": 36,
+    "slot_utilization_pct": 64.3,
+    "bundled_slots_count": 16,
+    "bundled_defects_count": 32,
+    "bundling_rate_pct": 61.5,
+    "total_priority_value_scheduled": 3316.84,
     "priority_clearance_pct": 100.0,
     "feasibility_violations": 0
   },
   "bundling_summary": {
     "weekly_bundled_slots": 13,
     "weekly_bundled_defects": 26,
-    "monthly_bundled_slots": 15,
-    "monthly_bundled_defects": 30
+    "monthly_bundled_slots": 16,
+    "monthly_bundled_defects": 32
   },
   "before_vs_after_metrics": {
     "before_optimization": {
