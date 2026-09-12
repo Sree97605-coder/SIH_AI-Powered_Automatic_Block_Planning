@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import sqlite3
 import sys
 from datetime import datetime, timezone
@@ -9,8 +10,9 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -20,11 +22,14 @@ from baseline_and_metrics import compare_plans, fifo_baseline, severity_baseline
 from src.database import read_records
 from src.feasibility_utils import classify_unscheduled
 from src.optimization import optimize_schedule
+from src.auth import CurrentUser, authenticate_user, create_access_token, get_current_user, require_roles
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 OPTIMIZED_DIR = DATA_DIR / "optimized"
-OVERRIDE_DB_PATH = PROJECT_ROOT / "override_log.db"
+OVERRIDE_DB_PATH = Path(os.environ.get("OVERRIDE_DB_PATH", "override_log.db"))
+if not OVERRIDE_DB_PATH.is_absolute():
+    OVERRIDE_DB_PATH = PROJECT_ROOT / OVERRIDE_DB_PATH
 
 VALID_REASON_CATEGORIES = {
     "prioritization_mistake": "Prioritization mistake",
@@ -86,6 +91,38 @@ def _clean_frame(df: pd.DataFrame) -> list[dict[str, Any]]:
     if df.empty:
         return []
     return df.where(pd.notna(df), None).to_dict(orient="records")
+
+
+def _add_source_system(df: pd.DataFrame) -> pd.DataFrame:
+    enriched = df.copy()
+    if "source_system" not in enriched.columns:
+        enriched["source_system"] = enriched["defect_id"].astype(str).str.extract(r"^(TMS|SMMS|TDMS)-", expand=False)
+    return enriched
+
+
+def _filter_by_department(df: pd.DataFrame, user: CurrentUser) -> pd.DataFrame:
+    if user.role != "DEPT_ENGINEER" or not user.department:
+        return df
+    enriched = _add_source_system(df)
+    return enriched[enriched["source_system"].astype(str) == user.department].copy()
+
+
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/auth/login")
+def login(payload: LoginPayload) -> dict[str, Any]:
+    user = authenticate_user(payload.username.strip(), payload.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    return {
+        "access_token": create_access_token(user.username, user.role, user.department),
+        "token_type": "bearer",
+        "expires_in": 8 * 60 * 60,
+        "user": {"username": user.username, "role": user.role, "department": user.department},
+    }
 
 
 def _parse_assigned_ids(raw: Any) -> list[str]:
@@ -394,10 +431,12 @@ def get_audit_log(
 def get_defects(
     urgency: str | None = Query(default=None, description="Optional urgency band filter, e.g. P1 or P2"),
     limit: int | None = Query(default=None, ge=1),
+    user: CurrentUser = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     defects_df = _read_dataset(DATA_DIR / "prioritized_defects.csv", "rail_defects")
     if defects_df.empty:
         return []
+    defects_df = _filter_by_department(defects_df, user)
 
     if urgency:
         defects_df = defects_df[
@@ -413,7 +452,7 @@ def get_defects(
     if limit is not None:
         defects_df = defects_df.head(limit).copy()
 
-    return _clean_frame(defects_df)
+    return _clean_frame(_add_source_system(defects_df))
 
 
 @app.get("/slots")
@@ -429,18 +468,29 @@ def get_slots(
 
 
 @app.get("/schedules/{horizon}")
-def get_schedule(horizon: str) -> list[dict[str, Any]]:
+def get_schedule(horizon: str, user: CurrentUser = Depends(get_current_user)) -> list[dict[str, Any]]:
     horizon = horizon.lower()
     if horizon not in {"weekly", "monthly"}:
         return []
     schedule_df = _read_dataset(
         OPTIMIZED_DIR / f"{horizon}_schedule.csv", f"rail_{horizon}_schedule"
     )
+    if user.role == "DEPT_ENGINEER" and user.department:
+        schedule_df = schedule_df.copy()
+        schedule_df["assigned_defect_ids"] = schedule_df["assigned_defect_ids"].apply(
+            lambda raw: [
+                defect_id
+                for defect_id in _parse_assigned_ids(raw)
+                if defect_id.startswith(f"{user.department}-")
+            ]
+        )
+        schedule_df["assigned_defect_count"] = schedule_df["assigned_defect_ids"].apply(len)
+        schedule_df = schedule_df[schedule_df["assigned_defect_count"] > 0].copy()
     return _clean_frame(schedule_df)
 
 
 @app.get("/unscheduled/{horizon}")
-def get_unscheduled(horizon: str) -> list[dict[str, Any]]:
+def get_unscheduled(horizon: str, user: CurrentUser = Depends(get_current_user)) -> list[dict[str, Any]]:
     horizon = horizon.lower()
     if horizon not in {"weekly", "monthly"}:
         return []
@@ -448,11 +498,11 @@ def get_unscheduled(horizon: str) -> list[dict[str, Any]]:
         OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv",
         f"rail_unscheduled_{horizon}",
     )
-    return _clean_frame(unscheduled_df)
+    return _clean_frame(_filter_by_department(unscheduled_df, user))
 
 
 @app.get("/classifications/{horizon}")
-def get_classifications(horizon: str) -> list[dict[str, Any]]:
+def get_classifications(horizon: str, user: CurrentUser = Depends(get_current_user)) -> list[dict[str, Any]]:
     horizon = horizon.lower()
     if horizon not in {"weekly", "monthly"}:
         return []
@@ -465,7 +515,7 @@ def get_classifications(horizon: str) -> list[dict[str, Any]]:
     if unscheduled_df.empty:
         return []
     classified = classify_unscheduled(unscheduled_df, slots_df)
-    return _clean_frame(classified)
+    return _clean_frame(_filter_by_department(classified, user))
 
 
 @app.get("/comparison")
@@ -526,7 +576,10 @@ def get_comparison() -> dict[str, list[dict[str, Any]]]:
 
 
 @app.post("/schedule/preview-override")
-def preview_override(payload: dict[str, Any]) -> dict[str, Any]:
+def preview_override(
+    payload: dict[str, Any],
+    user: CurrentUser = Depends(require_roles("COA_ADMIN")),
+) -> dict[str, Any]:
     """Preview the effect of a proposed slot override.
 
     reason_category is required at preview time (not just confirm time) because
@@ -554,7 +607,10 @@ def preview_override(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @app.post("/schedule/confirm-override")
-def confirm_override(payload: dict[str, Any]) -> dict[str, Any]:
+def confirm_override(
+    payload: dict[str, Any],
+    user: CurrentUser = Depends(require_roles("COA_ADMIN")),
+) -> dict[str, Any]:
     reason_category = str(payload.get("reason_category", "")).strip()
     if reason_category not in VALID_REASON_CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid reason_category. Must be one of the fixed override categories.")

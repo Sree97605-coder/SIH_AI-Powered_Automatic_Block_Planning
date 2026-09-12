@@ -10,10 +10,15 @@ import { HowItDecidesSection } from './components/landing/HowItDecidesSection';
 import { DemoTourModal } from './components/landing/DemoTourModal';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { TrainIntroAnimation } from './components/common/TrainIntroAnimation';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginScreen } from './components/auth/LoginScreen';
 
 const MainAppContent: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard'>('landing');
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+
+  if (!isAuthenticated) return <LoginScreen />;
 
   // If in dashboard view, render the persistent sidebar + topbar dashboard shell
   if (currentView === 'dashboard') {
@@ -89,9 +94,11 @@ const MainAppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <MainAppContent />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <MainAppContent />
+      </ThemeProvider>
+    </AuthProvider>
   );
 };
 

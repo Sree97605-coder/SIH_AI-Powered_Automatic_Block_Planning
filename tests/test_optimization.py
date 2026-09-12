@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import sys
 import tempfile
@@ -15,6 +16,11 @@ from unittest.mock import patch
 import pandas as pd
 from fastapi import HTTPException
 
+# Keep API tests out of the production audit log. This must be set before the
+# API module is imported because it resolves OVERRIDE_DB_PATH at import time.
+TEST_OVERRIDE_DB = Path(tempfile.gettempdir()) / "rail-block-planning-test-override-log.db"
+TEST_OVERRIDE_DB.unlink(missing_ok=True)
+os.environ["OVERRIDE_DB_PATH"] = str(TEST_OVERRIDE_DB)
 import src.api as api
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

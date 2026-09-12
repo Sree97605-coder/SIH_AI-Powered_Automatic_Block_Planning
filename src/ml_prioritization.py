@@ -169,8 +169,24 @@ class MLPrioritizationModel:
                 random_state=42,
             )
 
-    def train_and_predict(self, defects_df: pd.DataFrame | None = None) -> pd.DataFrame:
-        """Train model, compute cross-validation metrics, and predict priority scores."""
+    def train_and_predict(
+        self,
+        defects_df: pd.DataFrame | None = None,
+        training_target_column: str | None = None,
+    ) -> pd.DataFrame:
+        """Train model, compute metrics, and predict priority scores.
+
+        ``training_target_column`` allows a caller to provide an adjusted
+        supervised target while keeping the normal scoring output unchanged.
+        """
+        target_values = None
+        if training_target_column is not None:
+            if defects_df is None or training_target_column not in defects_df.columns:
+                raise ValueError(
+                    f"training target column {training_target_column!r} is missing from defects_df"
+                )
+            target_values = defects_df.set_index("defect_id")[training_target_column]
+
         # 1. Obtain rule-based scores as supervised target reference
         scorer = PriorityScorer(data_dir=self.data_dir)
         scored_df = scorer.score_all(defects_df)
@@ -178,7 +194,10 @@ class MLPrioritizationModel:
         # 2. Extract features
         features_df = extract_features(scored_df)
         X = features_df[FEATURE_COLUMNS].values
-        y = features_df["rule_priority_score"].values
+        y = features_df["rule_priority_score"]
+        if target_values is not None:
+            y = features_df["defect_id"].map(target_values).fillna(y)
+        y = y.astype(float).values
 
         # 3. Cross-validation evaluation
         kf = KFold(n_splits=5, shuffle=True, random_state=42)

@@ -12,3 +12,6 @@ dist/
 Thumbs.db
 .vscode/
 override_log.db
+users.db
+override_log.pre-c2-backup.db
+*.pre-c2-run-backup.csv

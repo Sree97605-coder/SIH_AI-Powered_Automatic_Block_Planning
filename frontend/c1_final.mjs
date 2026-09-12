@@ -9,6 +9,9 @@
  * Checkbox: #chk-p1-acknowledge
  */
 import { chromium } from 'playwright';
+if (!process.env.OVERRIDE_DB_PATH || /(^|[\\/])override_log\.db$/i.test(process.env.OVERRIDE_DB_PATH)) {
+  throw new Error('Set OVERRIDE_DB_PATH to a non-production test database before running C1 verification.');
+}
 const BASE = 'http://127.0.0.1:8000';
 const SHOTS = 'C:\\Users\\sree\\.gemini\\antigravity\\brain\\c6a92f40-0394-46c7-9bdb-1bac0b487aa6\\scratch\\';
 function log(msg) { console.log('[C1] ' + msg); }

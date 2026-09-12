@@ -2,7 +2,7 @@
   "weekly_optimization": {
     "horizon": "weekly",
     "solver_status": "Optimal",
-    "solver_time_seconds": 1.02,
+    "solver_time_seconds": 1.318,
     "total_defects_in_scope": 52,
     "total_defects_scheduled": 50,
     "defects_unscheduled_count": 2,
@@ -31,7 +31,7 @@
   "monthly_optimization": {
     "horizon": "monthly",
     "solver_status": "Optimal",
-    "solver_time_seconds": 0.766,
+    "solver_time_seconds": 0.987,
     "total_defects_in_scope": 52,
     "total_defects_scheduled": 52,
     "defects_unscheduled_count": 0,

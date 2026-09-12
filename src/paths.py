@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
-INTEGRATED_DIR = DATA_DIR / "integrated"
+INTEGRATED_DIR = Path(os.environ.get("INTEGRATED_DIR", DATA_DIR / "integrated"))
 
 
 def ensure_data_on_path() -> Path:

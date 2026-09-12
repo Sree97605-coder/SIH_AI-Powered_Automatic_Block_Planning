@@ -19,38 +19,25 @@ import {
 } from '../../api/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { VERIFIED_BENCHMARKS } from '../../config/constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface DashboardLayoutProps {
   onBackToLanding: () => void;
 }
 
-const ROLE_SESSION_KEY = 'tracksynex.role';
-const DEPARTMENT_SESSION_KEY = 'tracksynex.department';
-
-const readRole = (): RoleType => {
-  if (typeof window === 'undefined') return 'COA_ADMIN';
-  const storedRole = window.sessionStorage.getItem(ROLE_SESSION_KEY);
-  return storedRole === 'COA_ADMIN' || storedRole === 'DEPT_ENGINEER' || storedRole === 'DIVISION_HEAD'
-    ? storedRole
-    : 'COA_ADMIN';
-};
-
-const readDepartment = (): DepartmentType => {
-  if (typeof window === 'undefined') return 'Engineering';
-  const storedDepartment = window.sessionStorage.getItem(DEPARTMENT_SESSION_KEY);
-  return storedDepartment === 'Engineering' || storedDepartment === 'TRD' || storedDepartment === 'S&T'
-    ? storedDepartment
-    : 'Engineering';
-};
-
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLanding }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [horizon, setHorizon] = useState<HorizonType>('monthly');
   const [perspective, setPerspective] = useState<PerspectiveType>('division');
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
   const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null);
-  const [role, setRole] = useState<RoleType>(readRole);
-  const [engineerDepartment, setEngineerDepartment] = useState<DepartmentType>(readDepartment);
+  const role = user?.role ?? 'DIVISION_HEAD';
+  const engineerDepartment: DepartmentType = user?.department === 'TMS'
+    ? 'Engineering'
+    : user?.department === 'TDMS'
+    ? 'TRD'
+    : 'S&T';
 
   const queryClient = useQueryClient();
 
@@ -150,25 +137,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
           onPerspectiveChange={handlePerspectiveChange}
           role={role}
           department={engineerDepartment}
-          onRoleChange={(nextRole) => {
-            setRole(nextRole);
-            window.sessionStorage.setItem(ROLE_SESSION_KEY, nextRole);
-            setSelectedDefect(null);
-            if (nextRole !== 'COA_ADMIN' && activeTab === 'audit') {
-              setActiveTab('overview');
-            }
-            if (nextRole === 'DEPT_ENGINEER') {
-              setPerspective(engineerDepartment === 'Engineering' ? 'engineer' : engineerDepartment === 'TRD' ? 'ohe' : 'smt');
-            } else {
-              setPerspective('division');
-            }
-          }}
-          onDepartmentChange={(department) => {
-            setEngineerDepartment(department);
-            window.sessionStorage.setItem(DEPARTMENT_SESSION_KEY, department);
-            setSelectedDefect(null);
-            setPerspective(department === 'Engineering' ? 'engineer' : department === 'TRD' ? 'ohe' : 'smt');
-          }}
           solverStatus={solverStatus}
           isBackendConnected={isBackendConnected}
         />

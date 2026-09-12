@@ -24,6 +24,7 @@ from ml_prioritization import (
     extract_features,
     run_prioritization,
 )
+from retrain_with_overrides import build_adjusted_training_dataframe
 
 
 class MLPrioritizationTests(unittest.TestCase):
@@ -98,6 +99,30 @@ class MLPrioritizationTests(unittest.TestCase):
         df, summary = run_prioritization(data_dir=DATA_DIR)
         self.assertEqual(len(df), 52)
         self.assertEqual(summary["total_defects_evaluated"], 52)
+
+    def test_learnable_target_adjustment_is_targeted(self) -> None:
+        fake_df = pd.DataFrame(
+            [
+                {"defect_id": f"FAKE-{index}", "department": "Engineering", "location": "km 1", "section_id": "SEC-01", "defect_type": "rail wear", "severity": "Medium", "overdue_days": 5 + index, "estimated_duration_hours": 3.0, "criticality_score": 5 + index, "asset_impact": "Medium", "description": "synthetic"}
+                for index in range(5)
+            ]
+        )
+        scored = self.ml_model.train_and_predict(fake_df)
+        overrides = pd.DataFrame([{"defect_id": "FAKE-0", "reason_category": "prioritization_mistake", "learnable": 1}])
+        adjusted, applied = build_adjusted_training_dataframe(scored, overrides)
+
+        after_model = MLPrioritizationModel(data_dir=DATA_DIR)
+        adjusted_scores = after_model.train_and_predict(adjusted, training_target_column="_training_target")
+        before_score = float(scored.loc[scored["defect_id"] == "FAKE-0", "final_priority_score"].iloc[0])
+        after_score = float(adjusted_scores.loc[adjusted_scores["defect_id"] == "FAKE-0", "final_priority_score"].iloc[0])
+        other_deltas = (
+            adjusted_scores.set_index("defect_id")["final_priority_score"]
+            - scored.set_index("defect_id")["final_priority_score"]
+        ).drop("FAKE-0")
+
+        self.assertEqual(len(applied), 1)
+        self.assertGreater(after_score - before_score, 0.01)
+        self.assertTrue((other_deltas.abs() < 1.0).all())
 
 
 if __name__ == "__main__":

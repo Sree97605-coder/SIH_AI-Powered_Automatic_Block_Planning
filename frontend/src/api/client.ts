@@ -13,10 +13,24 @@ import {
   VERIFIED_BENCHMARKS,
   UNSCHEDULED_MONTHLY_CONTENTION,
 } from '../config/constants';
+import { getAccessToken, notifyUnauthorized } from '../auth/authStore';
 
 // Empty string = same-origin (production single-service on Render).
 // Override with VITE_API_URL only when running frontend against a separate backend.
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
+export interface AuthUser {
+  username: string;
+  role: 'COA_ADMIN' | 'DEPT_ENGINEER' | 'DIVISION_HEAD';
+  department: 'TMS' | 'SMMS' | 'TDMS' | null;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  user: AuthUser;
+}
 
 export class ApiError extends Error {
   status?: number;
@@ -32,17 +46,19 @@ export class ApiError extends Error {
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
+  const headers = new Headers(options?.headers);
+  headers.set('Accept', 'application/json');
+  headers.set('Content-Type', 'application/json');
+  const token = getAccessToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
   try {
     const res = await fetch(url, {
       ...options,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers,
     });
 
     if (!res.ok) {
+      if (res.status === 401) notifyUnauthorized();
       const contentType = res.headers.get('content-type') ?? '';
       if (contentType.includes('application/json')) {
         const errorPayload = await res.json().catch(() => null);
@@ -74,6 +90,13 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: async (username: string, password: string): Promise<LoginResponse> => {
+    return request<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  },
+
   getHealth: async (): Promise<{ status: string }> => {
     return request<{ status: string }>('/health');
   },
