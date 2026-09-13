@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -19,7 +19,8 @@ if not USERS_DB_PATH.is_absolute():
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "demo-only-change-this-secret")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_HOURS = 8  # Deliberately demo-friendly; production sessions should be shorter.
+JWT_EXPIRY_HOURS = 7 * 24
+JWT_COOKIE_NAME = "access_token"
 VALID_ROLES = {"COA_ADMIN", "DEPT_ENGINEER", "DIVISION_HEAD"}
 VALID_DEPARTMENTS = {"TMS", "SMMS", "TDMS"}
 PASSWORD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -74,6 +75,22 @@ def create_access_token(username: str, role: str, department: str | None) -> str
     )
 
 
+def decode_token(token: str) -> CurrentUser:
+    payload: dict[str, Any] = jwt.decode(
+        token,
+        JWT_SECRET,
+        algorithms=[JWT_ALGORITHM],
+    )
+    username = str(payload.get("sub", ""))
+    role = str(payload.get("role", ""))
+    department = payload.get("department")
+    if not username or role not in VALID_ROLES:
+        raise JWTError("missing identity claims")
+    if department is not None and department not in VALID_DEPARTMENTS:
+        raise JWTError("invalid department claim")
+    return CurrentUser(username=username, role=role, department=department)
+
+
 def authenticate_user(username: str, password: str) -> CurrentUser | None:
     connection = ensure_users_db()
     try:
@@ -90,28 +107,23 @@ def authenticate_user(username: str, password: str) -> CurrentUser | None:
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(BEARER),
 ) -> CurrentUser:
-    if credentials is None or credentials.scheme.lower() != "bearer":
+    token = None
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        token = credentials.credentials
+    elif request.cookies.get(JWT_COOKIE_NAME):
+        token = request.cookies.get(JWT_COOKIE_NAME)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
-        payload: dict[str, Any] = jwt.decode(
-            credentials.credentials,
-            JWT_SECRET,
-            algorithms=[JWT_ALGORITHM],
-        )
-        username = str(payload.get("sub", ""))
-        role = str(payload.get("role", ""))
-        department = payload.get("department")
-        if not username or role not in VALID_ROLES:
-            raise JWTError("missing identity claims")
-        if department is not None and department not in VALID_DEPARTMENTS:
-            raise JWTError("invalid department claim")
-        return CurrentUser(username=username, role=role, department=department)
+        return decode_token(token)
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,7 +44,22 @@ export const LoginScreen: React.FC = () => {
             <span className="block mb-2 text-xs font-mono uppercase text-[var(--text-muted)]">Password</span>
             <div className="relative">
               <LockKeyhole className="absolute left-3 top-3.5 w-4 h-4 text-[var(--text-muted)]" />
-              <input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-4 py-3 text-sm text-[var(--text-heading)] outline-none focus:border-[var(--accent-amber)]" />
+              <input
+                required
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] pl-10 pr-11 py-3 text-sm text-[var(--text-heading)] outline-none focus:border-[var(--accent-amber)]"
+              />
+              <button
+                type="button"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute right-3 top-3 text-[var(--text-muted)] hover:text-[var(--text-heading)]"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </label>
           {error && <p role="alert" className="text-sm text-[var(--accent-red)]">{error}</p>}
@@ -52,7 +68,7 @@ export const LoginScreen: React.FC = () => {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
-        <p className="mt-6 text-xs leading-relaxed text-[var(--text-muted)]">This prototype keeps the access token in memory only. Sessions intentionally end on page refresh.</p>
+        <p className="mt-6 text-xs leading-relaxed text-[var(--text-muted)]">Your session is stored in an HTTP-only cookie and remains active for up to one week after sign-in.</p>
       </section>
     </main>
   );

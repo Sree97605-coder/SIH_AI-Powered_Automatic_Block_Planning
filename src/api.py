@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -22,7 +22,15 @@ from baseline_and_metrics import compare_plans, fifo_baseline, severity_baseline
 from src.database import read_records
 from src.feasibility_utils import classify_unscheduled
 from src.optimization import optimize_schedule
-from src.auth import CurrentUser, authenticate_user, create_access_token, get_current_user, require_roles
+from src.auth import (
+    JWT_COOKIE_NAME,
+    JWT_EXPIRY_HOURS,
+    CurrentUser,
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    require_roles,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -68,9 +76,9 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8000",
     ],
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Accept", "Content-Type"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Accept", "Content-Type", "Authorization"],
 )
 
 
@@ -400,16 +408,42 @@ class LoginPayload(BaseModel):
 
 
 @app.post("/auth/login")
-def login(payload: LoginPayload) -> dict[str, Any]:
+def login(payload: LoginPayload, response: Response) -> dict[str, Any]:
     user = authenticate_user(payload.username.strip(), payload.password)
     if user is None:
         raise HTTPException(status_code=401, detail="Invalid username or password.")
+
+    token = create_access_token(user.username, user.role, user.department)
+    response.set_cookie(
+        key=JWT_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=JWT_EXPIRY_HOURS * 60 * 60,
+        path="/",
+    )
     return {
-        "access_token": create_access_token(user.username, user.role, user.department),
+        "access_token": token,
         "token_type": "bearer",
-        "expires_in": 8 * 60 * 60,
+        "expires_in": JWT_EXPIRY_HOURS * 60 * 60,
         "user": {"username": user.username, "role": user.role, "department": user.department},
     }
+
+
+@app.get("/auth/me")
+def auth_me(current_user: CurrentUser = Depends(get_current_user)) -> dict[str, str | None]:
+    return {
+        "username": current_user.username,
+        "role": current_user.role,
+        "department": current_user.department,
+    }
+
+
+@app.post("/auth/logout")
+def logout(response: Response) -> dict[str, str]:
+    response.delete_cookie(key=JWT_COOKIE_NAME, path="/")
+    return {"status": "ok"}
 
 
 def _parse_assigned_ids(raw: Any) -> list[str]:

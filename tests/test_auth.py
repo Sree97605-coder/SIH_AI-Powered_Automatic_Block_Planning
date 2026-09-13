@@ -83,6 +83,21 @@ class AuthenticationTests(unittest.TestCase):
         response = self.client.get("/defects", headers={"Authorization": f"Bearer {expired}"})
         self.assertEqual(response.status_code, 401)
 
+    def test_login_sets_cookie_and_session_can_be_rehydrated(self) -> None:
+        response = self.client.post("/auth/login", json={"username": "admin", "password": "admin-pass"})
+        self.assertEqual(response.status_code, 200)
+        set_cookie = response.headers.get("set-cookie") or ""
+        self.assertIn("access_token=", set_cookie)
+        self.assertIn("max-age=604800", set_cookie.lower())
+
+        token = response.cookies.get("access_token")
+        self.assertIsNotNone(token)
+
+        me = self.client.get("/auth/me", cookies={"access_token": token})
+        self.assertEqual(me.status_code, 200)
+        self.assertEqual(me.json()["username"], "admin")
+        self.assertEqual(me.json()["role"], "COA_ADMIN")
+
     def test_engineer_cannot_override_and_reason_is_distinct(self) -> None:
         token = self.login("tms-engineer", "tms-pass")
         response = self.client.post(
