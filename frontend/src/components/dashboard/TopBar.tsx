@@ -47,18 +47,30 @@ export const TopBar: React.FC<TopBarProps> = ({ perspective, onPerspectiveChange
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-[var(--bg-card)] backdrop-blur-xl border-b border-[var(--border-subtle)] px-4 sm:px-8 flex items-center justify-end gap-3 transition-colors">
-      <button
-        onClick={toggleTheme}
-        className="p-1.5 rounded-full bg-[var(--bg-surface)] hover:bg-[var(--bg-pill-hover)] border border-[var(--border-subtle)] text-[var(--text-body)] hover:text-[var(--text-heading)] transition-colors shadow-sm cursor-pointer"
-        title={`Switch to ${isDark ? 'Light' : 'Dark'} mode`}
-        aria-label="Toggle theme"
-      >
-        {isDark ? (
-          <Sun className="w-4 h-4 text-[var(--accent-amber-light)]" />
-        ) : (
-          <Moon className="w-4 h-4 text-[var(--accent-steel)]" />
-        )}
-      </button>
+      <div className="flex items-center gap-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-full p-1 shadow-[var(--shadow-card)]">
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 rounded-full hover:bg-[var(--bg-pill-hover)] text-[var(--text-body)] hover:text-[var(--text-heading)] transition-colors shadow-sm cursor-pointer"
+          title={`Switch to ${isDark ? 'Light' : 'Dark'} mode`}
+          aria-label="Toggle theme"
+        >
+          {isDark ? (
+            <Sun className="w-4 h-4 text-[var(--accent-amber-light)]" />
+          ) : (
+            <Moon className="w-4 h-4 text-[var(--accent-steel)]" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { void logout(); }}
+          className="p-1.5 rounded-full hover:bg-[var(--bg-pill-hover)] text-[var(--text-body)] hover:text-[var(--text-heading)] transition-colors shadow-sm cursor-pointer"
+          title="Logout"
+          aria-label="Logout"
+        >
+          <LogOut className="w-4 h-4 text-[var(--text-muted)]" />
+        </button>
+      </div>
 
       <div className="relative" ref={menuRef}>
         <button
