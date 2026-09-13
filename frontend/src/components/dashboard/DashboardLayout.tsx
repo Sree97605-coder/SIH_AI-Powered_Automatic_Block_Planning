@@ -41,6 +41,38 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
 
   const queryClient = useQueryClient();
 
+  const handleSimulateCrisDefect = async () => {
+    if (role !== 'COA_ADMIN') return;
+
+    try {
+      const payload = {
+        defect_id: `TMS-CRIS-${Date.now()}`,
+        department: 'Engineering',
+        location: 'SEC-01 / km 5.4 (CNB–CNBI Up)',
+        section_id: 'SEC-01',
+        section_name: 'Kanpur Central – Bindki Road',
+        defect_type: 'Rail fracture (suspect)',
+        severity: 'High',
+        overdue_days: 2,
+        estimated_duration_hours: 4,
+        criticality_score: 9,
+        asset_impact: 'High',
+        description: 'CRIS simulated defect queued for re-optimization.',
+        source_system: 'TMS',
+      };
+      const result = await import('../../api/client').then(({ api }) => api.simulateDefect(payload));
+      if (result.status === 'SCHEDULED' && result.slot_id && result.horizon) {
+        alert(`New defect ${result.defect_id} scheduled immediately into slot ${result.slot_id} (${result.horizon}) — no full re-optimization needed.`);
+      } else if (result.duplicate) {
+        alert(`Duplicate CRIS defect queued: ${result.defect_id}`);
+      } else {
+        alert(`Queued ${result.defect_id} for re-optimization.`);
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Unable to simulate CRIS defect.');
+    }
+  };
+
   // Queries from TanStack React Query
   const { data: healthData, isError: isHealthError } = useHealth();
   const { data: comparisonData = VERIFIED_BENCHMARKS } = useComparison();
@@ -131,14 +163,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         
         {/* Top Bar with Global Horizon, Perspective Switcher (OHE/SSMT/Eng/Control), Solver Status */}
         <TopBar
-          horizon={horizon}
-          onHorizonChange={(h) => setHorizon(h)}
           perspective={perspective}
           onPerspectiveChange={handlePerspectiveChange}
           role={role}
-          department={engineerDepartment}
-          solverStatus={solverStatus}
-          isBackendConnected={isBackendConnected}
         />
 
         {/* View Content Router */}
@@ -156,6 +183,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
               onSelectSectionFilter={(sec) => setSelectedSectionFilter(sec)}
               perspective={perspective}
               onPerspectiveChange={handlePerspectiveChange}
+              role={role}
+              onSimulateCrisDefect={() => { void handleSimulateCrisDefect(); }}
             />
           )}
 
@@ -224,6 +253,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         schedules={rawSchedule}
         slots={rawSlots}
         comparisonRow={comparisonRow}
+        solverStatus={solverStatus}
       />
 
     </div>

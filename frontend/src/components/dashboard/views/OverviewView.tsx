@@ -10,8 +10,9 @@ import {
   Radio,
   Calendar,
   Info,
+  PlusCircle,
 } from 'lucide-react';
-import { HorizonType, Defect, PerspectiveType } from '../../../types';
+import { HorizonType, Defect, PerspectiveType, RoleType } from '../../../types';
 import { VERIFIED_BENCHMARKS, CORRIDOR_DATA, SYSTEM_META } from '../../../config/constants';
 
 interface OverviewViewProps {
@@ -22,6 +23,8 @@ interface OverviewViewProps {
   onSelectSectionFilter?: (secId: string) => void;
   perspective?: PerspectiveType;
   onPerspectiveChange?: (p: PerspectiveType) => void;
+  role?: RoleType;
+  onSimulateCrisDefect?: () => void;
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
@@ -31,6 +34,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onSelectSectionFilter,
   perspective = 'division',
   onPerspectiveChange,
+  role = 'DIVISION_HEAD',
+  onSimulateCrisDefect,
 }) => {
   const benchmarkRows = VERIFIED_BENCHMARKS[horizon];
   const manualFifo = benchmarkRows.find(r => r.plan === 'Manual (FIFO)') || benchmarkRows[0];
@@ -71,6 +76,25 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
       </div>
+
+      {role === 'COA_ADMIN' && onSimulateCrisDefect && (
+        <div className="glass-card rounded-2xl p-4 border border-[var(--accent-amber-border)] bg-[var(--accent-amber-bg)]/60">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent-amber)] font-bold">Admin action</div>
+              <div className="text-sm font-display font-bold text-[var(--text-heading)]">Simulate CRIS Defect</div>
+            </div>
+            <button
+              type="button"
+              onClick={onSimulateCrisDefect}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold shadow-[var(--shadow-glow-amber)] transition-all cursor-pointer"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              Simulate CRIS Defect
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Perspective Quick Lens Switcher Banner */}
       <div className="glass-card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
