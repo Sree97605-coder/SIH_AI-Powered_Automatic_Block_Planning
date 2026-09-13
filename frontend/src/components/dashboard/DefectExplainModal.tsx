@@ -25,6 +25,24 @@ const REASON_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
+const formatMetricLabel = (key: string): string => {
+  const labelMap: Record<string, string> = {
+    clearance_pct: 'Overall Clearance',
+    p1_clearance_pct: 'P1 Clearance',
+    p2_clearance_pct: 'P2 Clearance',
+    combined_p1_p2_pct: 'Combined P1/P2 Clearance',
+    bundling_rate_pct: 'Bundling Rate',
+  };
+
+  return labelMap[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatDateTime = (value?: string | null): string => {
+  if (!value) return 'Not available';
+  const normalized = value.replace('T', ' ');
+  return normalized.length > 16 ? normalized.slice(0, 16) : normalized;
+};
+
 const toAssignedIds = (slot: ScheduledSlot): string[] => {
   const assigned = slot.assigned_defect_ids;
   if (Array.isArray(assigned)) return assigned;
@@ -269,103 +287,103 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[var(--bg-card-subtle)] border border-[var(--border-subtle)] space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="w-4 h-4 text-[var(--accent-amber)]" />
-                <span className="text-xs font-bold text-[var(--text-heading)]">Override plan</span>
-              </div>
+            {canOverride ? (
+              <div className="p-4 rounded-2xl bg-[var(--bg-card-subtle)] border border-[var(--border-subtle)] space-y-3">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="w-4 h-4 text-[var(--accent-amber)]" />
+                  <span className="text-xs font-bold text-[var(--text-heading)]">Override plan</span>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Current slot</label>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)]">
-                    {currentSlot?.slot_id ?? 'Not currently scheduled'}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Current slot</label>
+                    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)]">
+                      {currentSlot?.slot_id ?? 'Not currently scheduled'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="target-slot" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Target slot</label>
+                    <select
+                      id="target-slot"
+                      value={targetSlotId}
+                      onChange={(e) => { setTargetSlotId(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
+                      className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
+                    >
+                      {candidateSlots.length === 0 && <option value="">No compatible slots available</option>}
+                      {candidateSlots.map((slot) => (
+                        <option key={slot.slot_id} value={slot.slot_id}>{slot.slot_id}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="target-slot" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Target slot</label>
+                  <label htmlFor="override-reason" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Reason category</label>
                   <select
-                    id="target-slot"
-                    value={targetSlotId}
-                    onChange={(e) => { setTargetSlotId(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
+                    id="override-reason"
+                    value={reasonCategory}
+                    onChange={(e) => { setReasonCategory(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
                     className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
                   >
-                    {candidateSlots.length === 0 && <option value="">No compatible slots available</option>}
-                    {candidateSlots.map((slot) => (
-                      <option key={slot.slot_id} value={slot.slot_id}>{slot.slot_id}</option>
+                    {REASON_OPTIONS.map((option) => (
+                      <option key={option.value || 'placeholder'} value={option.value} disabled={option.value === '' && !reasonCategory ? false : option.value === ''}>
+                        {option.label}
+                      </option>
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label htmlFor="override-reason" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Reason category</label>
-                <select
-                  id="override-reason"
-                  value={reasonCategory}
-                  onChange={(e) => { setReasonCategory(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
-                  className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
-                >
-                  {REASON_OPTIONS.map((option) => (
-                    <option key={option.value || 'placeholder'} value={option.value} disabled={option.value === '' && !reasonCategory ? false : option.value === ''}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label htmlFor="override-note" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Reason note</label>
+                  <textarea
+                    id="override-note"
+                    value={reasonFreetext}
+                    onChange={(e) => setReasonFreetext(e.target.value)}
+                    rows={2}
+                    placeholder="Optional note for human review"
+                    className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="override-note" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Reason note</label>
-                <textarea
-                  id="override-note"
-                  value={reasonFreetext}
-                  onChange={(e) => setReasonFreetext(e.target.value)}
-                  rows={2}
-                  placeholder="Optional note for human review"
-                  className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
-                />
-              </div>
-
-              {/* ── Gap 2 fix: 403 — policy rejection banner ─────────────────────── */}
-              {policyRejection && (
-                <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-4 py-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Ban className="w-4 h-4 text-[var(--accent-red)] shrink-0" />
-                    <span className="text-xs font-bold text-[var(--accent-red)]">Policy rejection — P1 deferral not authorised</span>
-                  </div>
-                  <p className="text-[11px] text-[var(--accent-red)] leading-relaxed">{policyRejection.message}</p>
-                  {policyRejection.newly_deferred && policyRejection.newly_deferred.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-mono uppercase text-[var(--accent-red)] opacity-70 mb-1">P1 defects that would be deferred</div>
-                      <div className="flex flex-wrap gap-1">
-                        {policyRejection.newly_deferred.map((id) => (
-                          <span key={id} className="rounded-full bg-[var(--accent-red-bg)] border border-[var(--accent-red-border)] px-2 py-0.5 text-[10px] font-mono text-[var(--accent-red)]">{id}</span>
-                        ))}
-                      </div>
+                {/* ── Gap 2 fix: 403 — policy rejection banner ─────────────────────── */}
+                {policyRejection && (
+                  <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-4 py-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Ban className="w-4 h-4 text-[var(--accent-red)] shrink-0" />
+                      <span className="text-xs font-bold text-[var(--accent-red)]">Policy rejection — P1 deferral not authorised</span>
                     </div>
-                  )}
-                  <p className="text-[10px] font-mono text-[var(--accent-red)] opacity-80">
-                    Switch reason category to <strong>Weather or emergency</strong> or <strong>Emergency reprioritization</strong> to proceed.
-                  </p>
-                </div>
-              )}
+                    <p className="text-[11px] text-[var(--accent-red)] leading-relaxed">{policyRejection.message}</p>
+                    {policyRejection.newly_deferred && policyRejection.newly_deferred.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-mono uppercase text-[var(--accent-red)] opacity-70 mb-1">P1 defects that would be deferred</div>
+                        <div className="flex flex-wrap gap-1">
+                          {policyRejection.newly_deferred.map((id) => (
+                            <span key={id} className="rounded-full bg-[var(--accent-red-bg)] border border-[var(--accent-red-border)] px-2 py-0.5 text-[10px] font-mono text-[var(--accent-red)]">{id}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-[10px] font-mono text-[var(--accent-red)] opacity-80">
+                      Switch reason category to <strong>Weather or emergency</strong> or <strong>Emergency reprioritization</strong> to proceed.
+                    </p>
+                  </div>
+                )}
 
-              {/* ── Gap 2 fix: 409 / other error ─────────────────────────────────── */}
-              {previewError && (
-                <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-3 py-2 text-xs text-[var(--accent-red)]">
-                  {previewError}
-                </div>
-              )}
+                {/* ── Gap 2 fix: 409 / other error ─────────────────────────────────── */}
+                {previewError && (
+                  <div className="rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-3 py-2 text-xs text-[var(--accent-red)]">
+                    {previewError}
+                  </div>
+                )}
 
-              {confirmMessage && (
-                <div className="rounded-xl border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-3 py-2 text-xs text-[var(--accent-green)] flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  {confirmMessage}
-                </div>
-              )}
+                {confirmMessage && (
+                  <div className="rounded-xl border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-3 py-2 text-xs text-[var(--accent-green)] flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    {confirmMessage}
+                  </div>
+                )}
 
-              {canOverride ? (
                 <div className="space-y-3">
                   {preview && (
                     <div className="text-center text-[11px] font-mono text-[var(--text-heading)]">
@@ -392,12 +410,12 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                     </button>
                   </div>
                 </div>
-              ) : (
-                <div className="inline-flex items-center px-3 py-2 rounded-full bg-[var(--bg-pill)] border border-[var(--border-subtle)] text-[10px] font-mono font-bold text-[var(--text-muted)]">
-                  Read-only role — override controls unavailable
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-[var(--bg-card-subtle)] border border-[var(--border-subtle)] text-xs font-mono text-[var(--text-muted)]">
+                Schedule changes require COA Admin access. Contact your Control Office administrator to request an override.
+              </div>
+            )}
 
             {preview && (
               <div className="p-4 rounded-2xl bg-[var(--bg-card-subtle)] border border-[var(--border-subtle)] space-y-3">
@@ -499,17 +517,49 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                 {preview.metrics_after && (
                   <div>
                     <div className="text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">{previewNarrative.summaryLabel}</div>
-                    <div className="space-y-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 text-[11px] text-[var(--text-heading)]">
+                    <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 text-[11px] text-[var(--text-heading)]">
                       <p>{previewNarrative.lead}</p>
                       {previewNarrative.followUp && <p>{previewNarrative.followUp}</p>}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
-                          <div className="font-mono font-bold text-[var(--text-heading)]">Before</div>
-                          <div className="font-mono text-[var(--text-muted)]">{JSON.stringify(preview.metrics_before)}</div>
+                          <div className="font-mono font-bold text-[var(--text-heading)] mb-2">Before</div>
+                          <div className="space-y-2">
+                            {Object.entries(preview.metrics_before).map(([key, value]) => (
+                              <div key={`before-${key}`} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5">
+                                <span className="font-mono text-[var(--text-muted)]">{formatMetricLabel(key)}</span>
+                                <span className="font-mono font-bold text-[var(--text-heading)]">{value}%</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
+
                         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
-                          <div className="font-mono font-bold text-[var(--text-heading)]">After</div>
-                          <div className="font-mono text-[var(--text-muted)]">{JSON.stringify(preview.metrics_after)}</div>
+                          <div className="font-mono font-bold text-[var(--text-heading)] mb-2">After</div>
+                          <div className="space-y-2">
+                            {Object.entries(preview.metrics_after).map(([key, value]) => (
+                              <div key={`after-${key}`} className="flex items-center justify-between gap-3 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5">
+                                <span className="font-mono text-[var(--text-muted)]">{formatMetricLabel(key)}</span>
+                                <span className="font-mono font-bold text-[var(--text-heading)]">{value}%</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[var(--border-subtle)]">
+                        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
+                          <div className="font-mono font-bold text-[var(--text-heading)] mb-1">Current slot</div>
+                          <div className="font-mono text-[var(--text-body)]">
+                            {currentSlot?.slot_id ?? preview.original_slot_id ?? 'Not currently scheduled'}, {formatDateTime(currentSlot?.start_datetime ?? undefined)}, duration {currentSlot?.duration_hours ?? defect.estimated_duration_hours}h
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
+                          <div className="font-mono font-bold text-[var(--text-heading)] mb-1">Target slot</div>
+                          <div className="font-mono text-[var(--text-body)]">
+                            {targetSlotId || preview.target_slot_id || 'Not selected'}, {formatDateTime(candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.start_datetime ?? undefined)}, duration {candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.duration_hours ?? defect.estimated_duration_hours}h, remaining capacity before this change: {Math.max((candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.duration_hours ?? defect.estimated_duration_hours) - (preview.required_hours || 0), 0)}h
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -200,6 +200,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
               initialViewMode={perspective === 'control' ? 'control' : 'engineer'}
               departmentPerspective={activeDepartment}
               overrideEntries={auditEntries}
+              role={role}
             />
           )}
 

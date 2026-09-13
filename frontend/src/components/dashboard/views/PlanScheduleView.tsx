@@ -12,7 +12,7 @@ import {
   Shield,
   Info,
 } from 'lucide-react';
-import { HorizonType, Defect, DepartmentType, AuditLogEntry } from '../../../types';
+import { HorizonType, Defect, DepartmentType, AuditLogEntry, RoleType } from '../../../types';
 import { MergedSlotDisplay } from '../../../api/idleCapacity';
 import { CORRIDOR_DATA, DEPARTMENTS_INFO, SYSTEM_META } from '../../../config/constants';
 
@@ -27,6 +27,7 @@ interface PlanScheduleViewProps {
   initialViewMode?: 'control' | 'engineer';
   departmentPerspective?: 'ALL' | 'Engineering' | 'TRD' | 'S&T';
   overrideEntries?: AuditLogEntry[];
+  role?: RoleType;
 }
 
 export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
@@ -39,6 +40,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   initialViewMode = 'control',
   departmentPerspective = 'ALL',
   overrideEntries = [],
+  role = 'COA_ADMIN',
 }) => {
   const [viewMode, setViewMode] = useState<'control' | 'engineer'>(initialViewMode);
   const [activeDept, setActiveDept] = useState<DepartmentType>(departmentPerspective);
@@ -184,6 +186,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
 
   const CurrentPerspectiveInfo = perspectiveExplainer[activeDept];
   const PerspectiveIcon = CurrentPerspectiveInfo.icon;
+  const showDepartmentInvokers = role === 'COA_ADMIN';
 
   const latestOverrideByDefect = new Map<string, AuditLogEntry>();
   overrideEntries
@@ -287,86 +290,87 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
         )}
       </div>
 
-      {/* 4 Multi-Department Perspective Switcher Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        
-        {/* All Departments Tab */}
-        <button
-          onClick={() => setActiveDept('ALL')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-            activeDept === 'ALL'
-              ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
-              : 'glass-panel hover:border-[var(--border-medium)]'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className={`text-xs font-mono font-bold ${activeDept === 'ALL' ? 'text-[var(--accent-amber)]' : 'text-[var(--text-muted)]'}`}>
-              All Departments
-            </span>
-            <Layers className="w-4 h-4 text-[var(--accent-amber)]" />
-          </div>
-          <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{defects.length} Orders</div>
-          <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">{bundledCount} Bundled Slots</span>
-        </button>
+      {showDepartmentInvokers && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          
+          {/* All Departments Tab */}
+          <button
+            onClick={() => setActiveDept('ALL')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+              activeDept === 'ALL'
+                ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
+                : 'glass-panel hover:border-[var(--border-medium)]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-mono font-bold ${activeDept === 'ALL' ? 'text-[var(--accent-amber)]' : 'text-[var(--text-muted)]'}`}>
+                All Departments
+              </span>
+              <Layers className="w-4 h-4 text-[var(--accent-amber)]" />
+            </div>
+            <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{defects.length} Orders</div>
+            <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">{bundledCount} Bundled Slots</span>
+          </button>
 
-        {/* Track Engineering (TMS) */}
-        <button
-          onClick={() => setActiveDept('Engineering')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-            activeDept === 'Engineering'
-              ? 'bg-[var(--accent-steel-bg)] border-[var(--accent-steel)] shadow-[var(--shadow-glow-steel)]'
-              : 'glass-panel hover:border-[var(--border-medium)]'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className={`text-xs font-mono font-bold ${activeDept === 'Engineering' ? 'text-[var(--accent-steel)]' : 'text-[var(--text-muted)]'}`}>
-              Track Eng (TMS)
-            </span>
-            <Shield className="w-4 h-4 text-[var(--accent-steel)]" />
-          </div>
-          <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{engDefects.length} Orders</div>
-          <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">Fractures, Tamping, PSC</span>
-        </button>
+          {/* Track Engineering (TMS) */}
+          <button
+            onClick={() => setActiveDept('Engineering')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+              activeDept === 'Engineering'
+                ? 'bg-[var(--accent-steel-bg)] border-[var(--accent-steel)] shadow-[var(--shadow-glow-steel)]'
+                : 'glass-panel hover:border-[var(--border-medium)]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-mono font-bold ${activeDept === 'Engineering' ? 'text-[var(--accent-steel)]' : 'text-[var(--text-muted)]'}`}>
+                Track Eng (TMS)
+              </span>
+              <Shield className="w-4 h-4 text-[var(--accent-steel)]" />
+            </div>
+            <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{engDefects.length} Orders</div>
+            <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">Fractures, Tamping, PSC</span>
+          </button>
 
-        {/* Traction / OHE (TDMS) */}
-        <button
-          onClick={() => setActiveDept('TRD')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-            activeDept === 'TRD'
-              ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
-              : 'glass-panel hover:border-[var(--border-medium)]'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className={`text-xs font-mono font-bold ${activeDept === 'TRD' ? 'text-[var(--accent-amber)]' : 'text-[var(--text-muted)]'}`}>
-              Traction / OHE (TDMS)
-            </span>
-            <Zap className="w-4 h-4 text-[var(--accent-amber)]" />
-          </div>
-          <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{oheDefects.length} Orders</div>
-          <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">25kV Power Shadow Blocks</span>
-        </button>
+          {/* Traction / OHE (TDMS) */}
+          <button
+            onClick={() => setActiveDept('TRD')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+              activeDept === 'TRD'
+                ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
+                : 'glass-panel hover:border-[var(--border-medium)]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-mono font-bold ${activeDept === 'TRD' ? 'text-[var(--accent-amber)]' : 'text-[var(--text-muted)]'}`}>
+                Traction / OHE (TDMS)
+              </span>
+              <Zap className="w-4 h-4 text-[var(--accent-amber)]" />
+            </div>
+            <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{oheDefects.length} Orders</div>
+            <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">25kV Power Shadow Blocks</span>
+          </button>
 
-        {/* Signals & Telecom / SSMT (SMMS) */}
-        <button
-          onClick={() => setActiveDept('S&T')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-            activeDept === 'S&T'
-              ? 'bg-[var(--accent-green-bg)] border-[var(--accent-green)] shadow-[var(--shadow-glow-green)]'
-              : 'glass-panel hover:border-[var(--border-medium)]'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className={`text-xs font-mono font-bold ${activeDept === 'S&T' ? 'text-[var(--accent-green)]' : 'text-[var(--text-muted)]'}`}>
-              Signals & Telecom (S&T)
-            </span>
-            <Radio className="w-4 h-4 text-[var(--accent-green)]" />
-          </div>
-          <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{smtDefects.length} Orders</div>
-          <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">Interlocking, Points, Cables</span>
-        </button>
+          {/* Signals & Telecom / SSMT (SMMS) */}
+          <button
+            onClick={() => setActiveDept('S&T')}
+            className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+              activeDept === 'S&T'
+                ? 'bg-[var(--accent-green-bg)] border-[var(--accent-green)] shadow-[var(--shadow-glow-green)]'
+                : 'glass-panel hover:border-[var(--border-medium)]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-xs font-mono font-bold ${activeDept === 'S&T' ? 'text-[var(--accent-green)]' : 'text-[var(--text-muted)]'}`}>
+                Signals & Telecom (S&T)
+              </span>
+              <Radio className="w-4 h-4 text-[var(--accent-green)]" />
+            </div>
+            <div className="text-lg font-mono font-bold text-[var(--text-heading)] mt-1">{smtDefects.length} Orders</div>
+            <span className="text-[10px] text-[var(--text-muted)] block mt-0.5 font-mono">Interlocking, Points, Cables</span>
+          </button>
 
-      </div>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="glass-card-elevated rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">

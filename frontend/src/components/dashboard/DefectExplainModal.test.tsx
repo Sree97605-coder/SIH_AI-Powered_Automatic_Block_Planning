@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DefectExplainModal, buildOverridePreviewNarrative } from './DefectExplainModal';
 import { PlanScheduleView } from './views/PlanScheduleView';
 import type { AuditLogEntry, Defect, OverridePreviewResponse } from '../../types';
 import '@testing-library/jest-dom/vitest';
+import { api } from '../../api/client';
+import { render as renderPlanScheduleView } from '@testing-library/react';
 
 const defect: Defect = {
   defect_id: 'TMS-001',
@@ -83,6 +85,133 @@ describe('DefectExplainModal', () => {
 
     const { lead } = buildOverridePreviewNarrative(preview);
     expect(lead).toContain('This override would move');
+  });
+});
+
+describe('DefectExplainModal visibility and preview formatting', () => {
+  it('hides the override plan section for non-admin roles and shows the admin-contact copy', () => {
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[]}
+        slots={[
+          {
+            slot_id: 'SEC-01-0007',
+            section_id: 'SEC-01',
+            section_name: 'Prayagraj Main Line',
+            horizon: 'weekly',
+            start_datetime: '2025-09-08T04:00:00',
+            duration_hours: 4,
+            slot_source: 'MegaBlock',
+            max_tasks_possible: 2,
+          },
+        ]}
+        canOverride={false}
+      />,
+    );
+
+    expect(screen.queryByText(/Override plan/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Schedule changes require COA Admin access/i)).toBeInTheDocument();
+  });
+
+  it('renders human-readable before/after metrics and slot details instead of raw JSON', async () => {
+    const preview: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 12,
+      required_hours: 8,
+      newly_deferred: ['TMS-099'],
+      newly_cleared: ['TMS-100'],
+      priority_alert: false,
+      p1_displacement: false,
+      reason_category_valid_for_displacement: true,
+      metrics_before: { clearance_pct: 62, p1_clearance_pct: 70, p2_clearance_pct: 60 },
+      metrics_after: { clearance_pct: 71, p1_clearance_pct: 75, p2_clearance_pct: 68 },
+      original_slot_id: 'SEC-01-0001',
+      target_slot_id: 'SEC-01-0007',
+    };
+
+    vi.spyOn(api, 'previewOverride').mockResolvedValue(preview);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[
+          {
+            slot_id: 'SEC-01-0001',
+            section_id: 'SEC-01',
+            section_name: 'Prayagraj Main Line',
+            start_datetime: '2025-09-06T04:00:00',
+            end_datetime: '2025-09-06T08:00:00',
+            duration_hours: 4,
+            slot_source: 'MegaBlock',
+            assigned_defect_ids: ['TMS-001'],
+            assigned_defect_count: 1,
+            is_bundled: false,
+            bundle_type: 'Single Task Block',
+          },
+        ]}
+        slots={[
+          {
+            slot_id: 'SEC-01-0007',
+            section_id: 'SEC-01',
+            section_name: 'Prayagraj Main Line',
+            horizon: 'weekly',
+            start_datetime: '2025-09-08T04:00:00',
+            duration_hours: 4,
+            slot_source: 'MegaBlock',
+            max_tasks_possible: 2,
+          },
+        ]}
+        canOverride={true}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'weather_or_emergency' } });
+    fireEvent.change(screen.getByLabelText(/target slot/i), { target: { value: 'SEC-01-0007' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /preview override/i }));
+
+    const overallLabels = await screen.findAllByText('Overall Clearance');
+    expect(overallLabels.length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Current slot')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Target slot')).length).toBeGreaterThan(0);
+    const panel = overallLabels[0].closest('div')?.parentElement?.parentElement as HTMLElement;
+    expect(panel).not.toHaveTextContent('{');
+    expect(panel).not.toHaveTextContent('clearance_pct');
+  });
+});
+
+describe('PlanScheduleView role gating', () => {
+  it('shows the department card row for COA admin and hides it for DEPT_ENGINEER', () => {
+    const { rerender } = renderPlanScheduleView(
+      <PlanScheduleView
+        horizon="weekly"
+        mergedSlots={[]}
+        defects={[]}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+        role="COA_ADMIN"
+      />,
+    );
+
+    expect(screen.getByText('All Departments')).toBeInTheDocument();
+    expect(screen.getByText('Track Eng (TMS)')).toBeInTheDocument();
+
+    rerender(
+      <PlanScheduleView
+        horizon="weekly"
+        mergedSlots={[]}
+        defects={[]}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+        role="DEPT_ENGINEER"
+      />,
+    );
+
+    expect(screen.queryByText('All Departments')).not.toBeInTheDocument();
+    expect(screen.queryByText('Track Eng (TMS)')).not.toBeInTheDocument();
   });
 });
 
