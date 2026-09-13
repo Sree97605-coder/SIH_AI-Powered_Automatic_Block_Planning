@@ -25,17 +25,18 @@ os.environ["USERS_DB_PATH"] = str(TEST_USERS_DB)
 os.environ["OVERRIDE_DB_PATH"] = str(TEST_OVERRIDE_DB)
 
 import src.api as api
-from src.auth import JWT_ALGORITHM, JWT_SECRET, ensure_users_db, hash_password
+from src.auth import JWT_ALGORITHM, JWT_SECRET, ensure_users_db, hash_password, verify_password
 
 
 class AuthenticationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        connection = ensure_users_db()
+        connection = ensure_users_db(seed_demo_accounts=False)
         try:
+            connection.execute("DELETE FROM users")
             users = [
-                ("admin", "admin-pass", "COA_ADMIN", None),
-                ("head", "head-pass", "DIVISION_HEAD", None),
+                ("admin-user", "admin-pass", "COA_ADMIN", None),
+                ("head-user", "head-pass", "DIVISION_HEAD", None),
                 ("tms-engineer", "tms-pass", "DEPT_ENGINEER", "TMS"),
                 ("smms-engineer", "smms-pass", "DEPT_ENGINEER", "SMMS"),
             ]
@@ -57,16 +58,16 @@ class AuthenticationTests(unittest.TestCase):
         return response.json()["access_token"]
 
     def test_login_success_and_generic_failures(self) -> None:
-        response = self.client.post("/auth/login", json={"username": "admin", "password": "admin-pass"})
+        response = self.client.post("/auth/login", json={"username": "admin-user", "password": "admin-pass"})
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["user"]["role"], "COA_ADMIN")
         decoded = jwt.decode(payload["access_token"], JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        self.assertEqual(decoded["sub"], "admin")
+        self.assertEqual(decoded["sub"], "admin-user")
         self.assertEqual(decoded["role"], "COA_ADMIN")
         self.assertIn("exp", decoded)
 
-        wrong_password = self.client.post("/auth/login", json={"username": "admin", "password": "wrong"})
+        wrong_password = self.client.post("/auth/login", json={"username": "admin-user", "password": "wrong"})
         unknown_user = self.client.post("/auth/login", json={"username": "nobody", "password": "wrong"})
         self.assertEqual(wrong_password.status_code, 401)
         self.assertEqual(unknown_user.status_code, 401)
@@ -76,7 +77,7 @@ class AuthenticationTests(unittest.TestCase):
         missing = self.client.get("/defects")
         self.assertEqual(missing.status_code, 401)
         expired = jwt.encode(
-            {"sub": "admin", "role": "COA_ADMIN", "department": None, "exp": datetime.now(timezone.utc) - timedelta(minutes=1)},
+            {"sub": "admin-user", "role": "COA_ADMIN", "department": None, "exp": datetime.now(timezone.utc) - timedelta(minutes=1)},
             JWT_SECRET,
             algorithm=JWT_ALGORITHM,
         )
@@ -84,7 +85,7 @@ class AuthenticationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_login_sets_cookie_and_session_can_be_rehydrated(self) -> None:
-        response = self.client.post("/auth/login", json={"username": "admin", "password": "admin-pass"})
+        response = self.client.post("/auth/login", json={"username": "admin-user", "password": "admin-pass"})
         self.assertEqual(response.status_code, 200)
         set_cookie = response.headers.get("set-cookie") or ""
         self.assertIn("access_token=", set_cookie)
@@ -95,7 +96,7 @@ class AuthenticationTests(unittest.TestCase):
 
         me = self.client.get("/auth/me", cookies={"access_token": token})
         self.assertEqual(me.status_code, 200)
-        self.assertEqual(me.json()["username"], "admin")
+        self.assertEqual(me.json()["username"], "admin-user")
         self.assertEqual(me.json()["role"], "COA_ADMIN")
 
     def test_engineer_cannot_override_and_reason_is_distinct(self) -> None:
@@ -110,7 +111,7 @@ class AuthenticationTests(unittest.TestCase):
         self.assertNotEqual(response.json()["detail"]["reason"], "p1_displacement_not_authorized")
 
     def test_admin_passes_through_to_existing_override_logic(self) -> None:
-        token = self.login("admin", "admin-pass")
+        token = self.login("admin-user", "admin-pass")
         preview = {
             "feasible": True,
             "reason": None,
@@ -140,11 +141,34 @@ class AuthenticationTests(unittest.TestCase):
         self.assertTrue(engineer_response.json())
         self.assertEqual({row["source_system"] for row in engineer_response.json()}, {"TMS"})
 
-        head_token = self.login("head", "head-pass")
+        head_token = self.login("head-user", "head-pass")
         head_response = self.client.get("/defects", headers={"Authorization": f"Bearer {head_token}"})
         self.assertEqual(head_response.status_code, 200)
         self.assertGreater(len(head_response.json()), len(engineer_response.json()))
         self.assertEqual({row["source_system"] for row in head_response.json()}, {"TMS", "SMMS", "TDMS"})
+
+    def test_demo_accounts_are_seeded_idempotently_on_fresh_auth_db(self) -> None:
+        seed_path = Path(tempfile.gettempdir()) / "rail-block-planning-demo-seed.db"
+        seed_path.unlink(missing_ok=True)
+
+        connection = ensure_users_db(seed_path)
+        try:
+            usernames = [row[0] for row in connection.execute("SELECT username FROM users ORDER BY user_id").fetchall()]
+            self.assertEqual(usernames, ["admin", "head", "tms", "smms", "tdms"])
+            self.assertTrue(
+                all(verify_password("123456789", row[1]) for row in connection.execute("SELECT username, hashed_password FROM users"))
+            )
+        finally:
+            connection.close()
+
+        connection = ensure_users_db(seed_path)
+        try:
+            users = connection.execute("SELECT username FROM users ORDER BY user_id").fetchall()
+            self.assertEqual([row[0] for row in users], ["admin", "head", "tms", "smms", "tdms"])
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM users").fetchone()[0], 5)
+        finally:
+            connection.close()
+            seed_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

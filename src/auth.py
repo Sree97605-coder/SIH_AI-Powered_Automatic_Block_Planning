@@ -25,6 +25,14 @@ VALID_ROLES = {"COA_ADMIN", "DEPT_ENGINEER", "DIVISION_HEAD"}
 VALID_DEPARTMENTS = {"TMS", "SMMS", "TDMS"}
 PASSWORD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
 BEARER = HTTPBearer(auto_error=False)
+SHARED_PASSWORD = "123456789"
+DEMO_USERS = [
+    ("admin", "COA_ADMIN", None),
+    ("head", "DIVISION_HEAD", None),
+    ("tms", "DEPT_ENGINEER", "TMS"),
+    ("smms", "DEPT_ENGINEER", "SMMS"),
+    ("tdms", "DEPT_ENGINEER", "TDMS"),
+]
 
 
 @dataclass(frozen=True)
@@ -34,7 +42,7 @@ class CurrentUser:
     department: str | None
 
 
-def ensure_users_db(path: Path = USERS_DB_PATH) -> sqlite3.Connection:
+def ensure_users_db(path: Path = USERS_DB_PATH, *, seed_demo_accounts: bool = True) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(str(path))
     connection.execute(
@@ -50,6 +58,20 @@ def ensure_users_db(path: Path = USERS_DB_PATH) -> sqlite3.Connection:
         """
     )
     connection.commit()
+
+    if seed_demo_accounts:
+        existing_usernames = {row[0] for row in connection.execute("SELECT username FROM users").fetchall()}
+        for username, role, department in DEMO_USERS:
+            if username in existing_usernames:
+                continue
+            connection.execute(
+                """
+                INSERT INTO users (username, hashed_password, role, department, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, hash_password(SHARED_PASSWORD), role, department, datetime.now(timezone.utc).isoformat()),
+            )
+        connection.commit()
     return connection
 
 
