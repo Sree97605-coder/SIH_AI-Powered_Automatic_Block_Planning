@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DefectExplainModal, buildOverridePreviewNarrative } from './DefectExplainModal';
 import { PlanScheduleView } from './views/PlanScheduleView';
+import { formatSlotWindow } from '../../utils/displayFormatting';
+import { invalidateLiveScheduleQueries } from './DashboardLayout';
 import type { AuditLogEntry, Defect, OverridePreviewResponse } from '../../types';
 import '@testing-library/jest-dom/vitest';
 import { api } from '../../api/client';
@@ -89,6 +91,100 @@ describe('DefectExplainModal', () => {
 });
 
 describe('DefectExplainModal visibility and preview formatting', () => {
+  it('renders the same from-to window in both the worklist and modal preview for the chosen slot', async () => {
+    const preview: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 12,
+      required_hours: 8,
+      newly_deferred: ['TMS-099'],
+      newly_cleared: ['TMS-100'],
+      priority_alert: false,
+      p1_displacement: false,
+      reason_category_valid_for_displacement: true,
+      metrics_before: { clearance_pct: 62 },
+      metrics_after: { clearance_pct: 71 },
+      original_slot_id: 'SEC-01-0001',
+      target_slot_id: 'SEC-01-0007',
+    };
+
+    const slotWindow = formatSlotWindow('2025-09-08T04:00:00', 4, '2025-09-08T08:00:00');
+
+    vi.spyOn(api, 'previewOverride').mockResolvedValue(preview);
+
+    render(
+      <PlanScheduleView
+        horizon="weekly"
+        mergedSlots={[
+          {
+            slot_id: 'SEC-01-0007',
+            section_id: 'SEC-01',
+            section_name: 'Prayagraj Main Line',
+            start_datetime: '2025-09-08T04:00:00',
+            end_datetime: '2025-09-08T08:00:00',
+            duration_hours: 4,
+            slot_source: 'MegaBlock',
+            is_occupied: true,
+            assigned_defect_ids: ['TMS-001'],
+            assigned_defect_count: 1,
+            departments_involved: ['Engineering'],
+            is_bundled: false,
+            bundle_type: 'Single Task Block',
+            duration_utilization_pct: 100,
+          },
+        ]}
+        defects={[defect]}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText(/Prayagraj Main Line/i)).toBeInTheDocument();
+    const worklistWindowMatches = screen.getAllByText((_, element) => !!element && element.textContent?.includes('From') && element.textContent.includes(slotWindow));
+    expect(worklistWindowMatches.length).toBeGreaterThan(0);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[
+          {
+            slot_id: 'SEC-01-0001',
+            section_id: 'SEC-01',
+            section_name: 'Prayagraj Main Line',
+            start_datetime: '2025-09-06T04:00:00',
+            end_datetime: '2025-09-06T08:00:00',
+            duration_hours: 4,
+            slot_source: 'MegaBlock',
+            assigned_defect_ids: ['TMS-001'],
+            assigned_defect_count: 1,
+            is_bundled: false,
+            bundle_type: 'Single Task Block',
+          },
+        ]}
+        slots={[
+          {
+            slot_id: 'SEC-01-0007',
+            section_id: 'SEC-01',
+            section_name: 'Prayagraj Main Line',
+            horizon: 'weekly',
+            start_datetime: '2025-09-08T04:00:00',
+            duration_hours: 4,
+            slot_source: 'MegaBlock',
+            max_tasks_possible: 2,
+          },
+        ]}
+        canOverride={true}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'weather_or_emergency' } });
+    fireEvent.change(screen.getByLabelText(/target slot/i), { target: { value: 'SEC-01-0007' } });
+    fireEvent.click(screen.getByRole('button', { name: /preview override/i }));
+
+    const modalWindowMatches = await screen.findAllByText((_, element) => !!element && element.textContent?.includes(slotWindow));
+    expect(modalWindowMatches.length).toBeGreaterThan(0);
+  });
+
   it('hides the override plan section for non-admin roles and shows the admin-contact copy', () => {
     render(
       <DefectExplainModal
@@ -212,6 +308,151 @@ describe('PlanScheduleView role gating', () => {
 
     expect(screen.queryByText('All Departments')).not.toBeInTheDocument();
     expect(screen.queryByText('Track Eng (TMS)')).not.toBeInTheDocument();
+  });
+
+  it('buckets the integrated department cards by canonical source prefix', () => {
+    const backlog = [
+      ...Array.from({ length: 22 }, (_, index) => ({ ...defect, defect_id: `TMS-${String(index + 1).padStart(3, '0')}`, department: 'TMS' })),
+      ...Array.from({ length: 14 }, (_, index) => ({ ...defect, defect_id: `TDMS-${String(index + 1).padStart(3, '0')}`, department: 'TDMS' })),
+      ...Array.from({ length: 16 }, (_, index) => ({ ...defect, defect_id: `SMMS-${String(index + 1).padStart(3, '0')}`, department: 'SMMS' })),
+    ];
+
+    renderPlanScheduleView(
+      <PlanScheduleView
+        horizon="weekly"
+        mergedSlots={[]}
+        defects={backlog}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+        role="COA_ADMIN"
+      />,
+    );
+
+    expect(screen.getByText('22 Orders')).toBeInTheDocument();
+    expect(screen.getByText('14 Orders')).toBeInTheDocument();
+    expect(screen.getByText('16 Orders')).toBeInTheDocument();
+  });
+
+  it('renders the assigned section and identical from-to range in the worklist', () => {
+    const slotWindow = formatSlotWindow('2025-09-08T04:00:00', 4, '2025-09-08T08:00:00');
+
+    renderPlanScheduleView(
+      <PlanScheduleView
+        horizon="weekly"
+        initialViewMode="engineer"
+        mergedSlots={[{
+          slot_id: 'SEC-01-0007',
+          section_id: 'SEC-01',
+          section_name: 'Prayagraj Main Line',
+          start_datetime: '2025-09-08T04:00:00',
+          end_datetime: '2025-09-08T08:00:00',
+          duration_hours: 4,
+          slot_source: 'MegaBlock',
+          is_occupied: true,
+          assigned_defect_ids: ['TMS-001'],
+          assigned_defect_count: 1,
+          departments_involved: ['Engineering'],
+          is_bundled: false,
+          bundle_type: 'Single Task Block',
+          duration_utilization_pct: 100,
+        }]}
+        defects={[defect]}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Prayagraj Main Line')).toBeInTheDocument();
+    expect(screen.getByText(slotWindow)).toBeInTheDocument();
+  });
+});
+
+describe('DefectExplainModal override guard rails', () => {
+  it('keeps confirm disabled until a P1 displacement is acknowledged', async () => {
+    const preview: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 8,
+      required_hours: 4,
+      newly_deferred: ['TMS-099'],
+      newly_cleared: [],
+      priority_alert: true,
+      p1_displacement: true,
+      reason_category_valid_for_displacement: true,
+      metrics_before: { clearance_pct: 50 },
+      metrics_after: { clearance_pct: 45 },
+      original_slot_id: 'SEC-01-0001',
+      target_slot_id: 'SEC-01-0007',
+    };
+    vi.spyOn(api, 'previewOverride').mockResolvedValue(preview);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{ slot_id: 'SEC-01-0001', section_id: 'SEC-01', section_name: 'Prayagraj Main Line', start_datetime: '2025-09-06T04:00:00', end_datetime: '2025-09-06T08:00:00', duration_hours: 4, slot_source: 'MegaBlock', assigned_defect_ids: ['TMS-001'], assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block' }]}
+        slots={[{ slot_id: 'SEC-01-0007', section_id: 'SEC-01', section_name: 'Prayagraj Main Line', horizon: 'weekly', start_datetime: '2025-09-08T04:00:00', duration_hours: 4, slot_source: 'MegaBlock', max_tasks_possible: 2 }]}
+        canOverride={true}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'weather_or_emergency' } });
+    fireEvent.change(screen.getByLabelText(/target slot/i), { target: { value: 'SEC-01-0007' } });
+    fireEvent.click(screen.getByRole('button', { name: /preview override/i }));
+
+    const confirmButton = await screen.findByRole('button', { name: /confirm override/i });
+    expect(confirmButton).toBeDisabled();
+    fireEvent.click(screen.getByLabelText(/I understand this defers a P1 safety defect/i));
+    expect(confirmButton).toBeEnabled();
+  });
+
+  it('disables confirm for same-slot no-op selections and explains why', () => {
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{ slot_id: 'SEC-01-0001', section_id: 'SEC-01', section_name: 'Prayagraj Main Line', start_datetime: '2025-09-06T04:00:00', end_datetime: '2025-09-06T08:00:00', duration_hours: 4, slot_source: 'MegaBlock', assigned_defect_ids: ['TMS-001'], assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block' }]}
+        slots={[{ slot_id: 'SEC-01-0001', section_id: 'SEC-01', section_name: 'Prayagraj Main Line', horizon: 'weekly', start_datetime: '2025-09-06T04:00:00', duration_hours: 4, slot_source: 'MegaBlock', max_tasks_possible: 2 }]}
+        canOverride={true}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'prioritization_mistake' } });
+    fireEvent.change(screen.getByLabelText(/target slot/i), { target: { value: 'SEC-01-0001' } });
+
+    expect(screen.getByText(/This is the defect's current slot/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm override/i })).toBeDisabled();
+  });
+
+  it('requires an explicit re-override acknowledgement banner before a repeat confirm is allowed', () => {
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{ slot_id: 'SEC-01-0001', section_id: 'SEC-01', section_name: 'Prayagraj Main Line', start_datetime: '2025-09-06T04:00:00', end_datetime: '2025-09-06T08:00:00', duration_hours: 4, slot_source: 'MegaBlock', assigned_defect_ids: ['TMS-001'], assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block' }]}
+        slots={[{ slot_id: 'SEC-01-0007', section_id: 'SEC-01', section_name: 'Prayagraj Main Line', horizon: 'weekly', start_datetime: '2025-09-08T04:00:00', duration_hours: 4, slot_source: 'MegaBlock', max_tasks_possible: 2 }]}
+        canOverride={true}
+        overrideEntries={[
+          { override_id: 9, defect_id: 'TMS-001', horizon: 'weekly', original_slot_id: 'SEC-01-0001', new_slot_id: 'SEC-01-0007', changed_by: 'COA_ADMIN', timestamp: '2025-09-01T12:00:00Z', reason_category: 'weather_or_emergency', reason_freetext: 'Earlier override', learnable: 0, newly_deferred_ids: 'TMS-099', priority_alert: 0 },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'weather_or_emergency' } });
+    fireEvent.change(screen.getByLabelText(/target slot/i), { target: { value: 'SEC-01-0007' } });
+    fireEvent.click(screen.getByRole('button', { name: /preview override/i }));
+
+    expect(screen.getByText(/already overridden/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/I understand this defect was already overridden/i)).toBeInTheDocument();
+  });
+});
+
+describe('Dashboard live refresh', () => {
+  it('invalidates schedule and slot queries after confirmation', () => {
+    const invalidateQueries = vi.fn();
+    invalidateLiveScheduleQueries({ invalidateQueries }, 'weekly');
+
+    expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['schedule', 'weekly'] });
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['slots', 'weekly'] });
   });
 });
 

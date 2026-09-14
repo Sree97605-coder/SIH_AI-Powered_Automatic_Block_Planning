@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Shield, Cpu, Clock, ArrowRightLeft, CheckCircle2, AlertTriangle, Ban } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
-import { ApiErrorDetail, BlockSlot, Defect, HorizonType, OverridePreviewResponse, ScheduledSlot } from '../../types';
+import { ApiErrorDetail, AuditLogEntry, BlockSlot, Defect, HorizonType, OverridePreviewResponse, ScheduledSlot } from '../../types';
+import { formatSlotWindow } from '../../utils/displayFormatting';
 
 interface DefectExplainModalProps {
   defect: Defect | null;
@@ -11,6 +12,7 @@ interface DefectExplainModalProps {
   schedule?: ScheduledSlot[];
   slots?: BlockSlot[];
   canOverride?: boolean;
+  overrideEntries?: AuditLogEntry[];
   /** Called after a successful confirm so the parent can re-fetch live schedule data. */
   onConfirmSuccess?: () => void;
 }
@@ -84,6 +86,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   schedule = [],
   slots = [],
   canOverride = true,
+  overrideEntries = [],
   onConfirmSuccess,
 }) => {
   const [targetSlotId, setTargetSlotId] = useState('');
@@ -99,13 +102,14 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   const [isConfirming, setIsConfirming] = useState(false);
   // Officer must explicitly acknowledge P1 displacement before Confirm is enabled
   const [p1Acknowledged, setP1Acknowledged] = useState(false);
+  const [reoverrideAcknowledged, setReoverrideAcknowledged] = useState(false);
 
   useEffect(() => {
     if (!defect) return;
 
     const currentSlot = schedule.find((slot) => toAssignedIds(slot).includes(defect.defect_id));
     const sameSectionSlots = slots.filter((slot) => slot.section_id === defect.section_id);
-    const nextTarget = currentSlot?.slot_id ?? sameSectionSlots[0]?.slot_id ?? '';
+    const nextTarget = sameSectionSlots.find((slot) => slot.slot_id !== currentSlot?.slot_id)?.slot_id ?? sameSectionSlots[0]?.slot_id ?? '';
 
     setTargetSlotId(nextTarget);
     setPreview(null);
@@ -115,6 +119,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     setReasonCategory('');
     setReasonFreetext('');
     setP1Acknowledged(false);
+    setReoverrideAcknowledged(false);
   }, [defect, schedule, slots]);
 
   if (!defect) return null;
@@ -125,6 +130,8 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   const mlScore = defect.ml_priority_score ?? (priorityScore + 0.2);
   const currentSlot = schedule.find((slot) => toAssignedIds(slot).includes(defect.defect_id));
   const candidateSlots = slots.filter((slot) => slot.section_id === defect.section_id).sort((a, b) => a.start_datetime.localeCompare(b.start_datetime));
+  const sameSlotSelection = !!currentSlot && !!targetSlotId && currentSlot.slot_id === targetSlotId;
+  const hasPreviousOverride = overrideEntries.some((entry) => entry.defect_id === defect.defect_id && entry.horizon === horizon);
 
   // ── Gap 1 fix: reason_category included in preview call ──────────────────
   const handlePreview = async () => {
@@ -136,6 +143,11 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
 
     if (!targetSlotId) {
       setPreviewError('Choose a target slot before previewing the override.');
+      return;
+    }
+
+    if (sameSlotSelection) {
+      setPreviewError("This is the defect's current slot. Choose a different target slot to make a real override.");
       return;
     }
 
@@ -195,6 +207,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
         changed_by: 'Dashboard User',
         reason_category: reasonCategory,
         reason_freetext: reasonFreetext || undefined,
+        acknowledge_reoverride: hasPreviousOverride ? reoverrideAcknowledged : undefined,
       });
       setConfirmMessage(response.message);
       // ── Gap 3 fix: trigger parent re-fetch from live API ─────────────────
@@ -217,7 +230,9 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     !isConfirming &&
     !!preview &&
     preview.feasible &&
-    (!preview.p1_displacement || p1Acknowledged);
+    !sameSlotSelection &&
+    (!preview.p1_displacement || p1Acknowledged) &&
+    (!hasPreviousOverride || reoverrideAcknowledged);
   const previewNarrative = buildOverridePreviewNarrative(preview);
 
   return (
@@ -300,6 +315,9 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)]">
                       {currentSlot?.slot_id ?? 'Not currently scheduled'}
                     </div>
+                    {sameSlotSelection && (
+                      <p className="mt-2 text-[10px] font-mono text-[var(--accent-red)]">This is the defect's current slot. Select a different target slot to make a real override.</p>
+                    )}
                   </div>
 
                   <div>
@@ -345,6 +363,23 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                     className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
                   />
                 </div>
+
+                {hasPreviousOverride && (
+                  <div className="rounded-xl border border-[var(--accent-amber-border)] bg-[var(--accent-amber-bg)] px-3 py-2">
+                    <p className="text-[10px] font-mono font-bold uppercase text-[var(--accent-amber)]">Repeat override detected</p>
+                    <p className="text-[11px] text-[var(--accent-amber)] mt-1">This defect has already been overridden in this horizon. Confirming again requires explicit acknowledgment.</p>
+                    <label className="mt-2 flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        id="chk-reoverride-acknowledge"
+                        type="checkbox"
+                        checked={reoverrideAcknowledged}
+                        onChange={(e) => setReoverrideAcknowledged(e.target.checked)}
+                        className="accent-[var(--accent-amber)] w-3.5 h-3.5"
+                      />
+                      <span className="text-[11px] font-mono text-[var(--accent-amber)]">I understand this defect was already overridden and want to continue with this repeat change.</span>
+                    </label>
+                  </div>
+                )}
 
                 {/* ── Gap 2 fix: 403 — policy rejection banner ─────────────────────── */}
                 {policyRejection && (
@@ -394,7 +429,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                     <button
                       id="btn-preview-override"
                       onClick={handlePreview}
-                      disabled={isPreviewing || !targetSlotId || !reasonCategory}
+                      disabled={isPreviewing || !targetSlotId || !reasonCategory || sameSlotSelection}
                       className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
                     >
                       {isPreviewing ? 'Previewing…' : 'Preview override'}
@@ -551,14 +586,17 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
                           <div className="font-mono font-bold text-[var(--text-heading)] mb-1">Current slot</div>
                           <div className="font-mono text-[var(--text-body)]">
-                            {currentSlot?.slot_id ?? preview.original_slot_id ?? 'Not currently scheduled'}, {formatDateTime(currentSlot?.start_datetime ?? undefined)}, duration {currentSlot?.duration_hours ?? defect.estimated_duration_hours}h
+                            {currentSlot?.section_name ?? currentSlot?.section_id ?? preview.original_slot_id ?? 'Not currently scheduled'} • {currentSlot ? formatSlotWindow(currentSlot.start_datetime, currentSlot.duration_hours, currentSlot.end_datetime) : 'Not available'}
                           </div>
                         </div>
 
                         <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-2">
                           <div className="font-mono font-bold text-[var(--text-heading)] mb-1">Target slot</div>
                           <div className="font-mono text-[var(--text-body)]">
-                            {targetSlotId || preview.target_slot_id || 'Not selected'}, {formatDateTime(candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.start_datetime ?? undefined)}, duration {candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.duration_hours ?? defect.estimated_duration_hours}h, remaining capacity before this change: {Math.max((candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.duration_hours ?? defect.estimated_duration_hours) - (preview.required_hours || 0), 0)}h
+                            {candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.section_name ?? candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.section_id ?? (targetSlotId || preview.target_slot_id || 'Not selected')} • {(() => {
+                              const slot = candidateSlots.find((candidate) => candidate.slot_id === (targetSlotId || preview.target_slot_id));
+                              return slot ? formatSlotWindow(slot.start_datetime, slot.duration_hours, slot.end_datetime) : 'Not available';
+                            })()} • remaining capacity before this change: {Math.max((candidateSlots.find((slot) => slot.slot_id === (targetSlotId || preview.target_slot_id))?.duration_hours ?? defect.estimated_duration_hours) - (preview.required_hours || 0), 0)}h
                           </div>
                         </div>
                       </div>

@@ -18,12 +18,18 @@ import {
   useAuditLog,
 } from '../../api/hooks';
 import { useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { VERIFIED_BENCHMARKS } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
 
 interface DashboardLayoutProps {
   onBackToLanding: () => void;
 }
+
+export const invalidateLiveScheduleQueries = (queryClient: Pick<QueryClient, 'invalidateQueries'>, horizon: HorizonType): void => {
+  void queryClient.invalidateQueries({ queryKey: ['schedule', horizon] });
+  void queryClient.invalidateQueries({ queryKey: ['slots', horizon] });
+};
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLanding }) => {
   const { user } = useAuth();
@@ -240,11 +246,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         slots={rawSlots}
         canOverride={role === 'COA_ADMIN'}
         onConfirmSuccess={() => {
-          // Re-fetch live schedule + slots from API after a successful confirm.
-          // Invalidating both keys ensures the merged slot display (occupied/idle)
-          // and the raw schedule fed to the modal both reflect the new state.
-          queryClient.invalidateQueries({ queryKey: ['schedule', horizon] });
-          queryClient.invalidateQueries({ queryKey: ['slots', horizon] });
+          invalidateLiveScheduleQueries(queryClient, horizon);
         }}
       />
 

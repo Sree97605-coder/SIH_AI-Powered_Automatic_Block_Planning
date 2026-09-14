@@ -27,12 +27,19 @@ PASSWORD_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
 BEARER = HTTPBearer(auto_error=False)
 SHARED_PASSWORD = "123456789"
 DEMO_USERS = [
-    ("admin", "COA_ADMIN", None),
-    ("head", "DIVISION_HEAD", None),
-    ("tms", "DEPT_ENGINEER", "TMS"),
-    ("smms", "DEPT_ENGINEER", "SMMS"),
-    ("tdms", "DEPT_ENGINEER", "TDMS"),
+    ("coa.admin", "COA_ADMIN", None),
+    ("division.head", "DIVISION_HEAD", None),
+    ("tms.engineer", "DEPT_ENGINEER", "TMS"),
+    ("smms.engineer", "DEPT_ENGINEER", "SMMS"),
+    ("tdms.engineer", "DEPT_ENGINEER", "TDMS"),
 ]
+LEGACY_DEMO_USERNAMES = {
+    "admin": "coa.admin",
+    "head": "division.head",
+    "tms": "tms.engineer",
+    "smms": "smms.engineer",
+    "tdms": "tdms.engineer",
+}
 
 
 @dataclass(frozen=True)
@@ -61,6 +68,14 @@ def ensure_users_db(path: Path = USERS_DB_PATH, *, seed_demo_accounts: bool = Tr
 
     if seed_demo_accounts:
         existing_usernames = {row[0] for row in connection.execute("SELECT username FROM users").fetchall()}
+        for legacy_username, demo_username in LEGACY_DEMO_USERNAMES.items():
+            if legacy_username in existing_usernames and demo_username not in existing_usernames:
+                connection.execute(
+                    "UPDATE users SET username = ? WHERE username = ?",
+                    (demo_username, legacy_username),
+                )
+                existing_usernames.remove(legacy_username)
+                existing_usernames.add(demo_username)
         for username, role, department in DEMO_USERS:
             if username in existing_usernames:
                 continue

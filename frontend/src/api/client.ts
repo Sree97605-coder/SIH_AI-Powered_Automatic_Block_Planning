@@ -236,6 +236,7 @@ export const api = {
     changed_by: string;
     reason_category: string;
     reason_freetext?: string;
+    acknowledge_reoverride?: boolean;
   }): Promise<OverrideConfirmResponse> => {
     return request<OverrideConfirmResponse>('/schedule/confirm-override', {
       method: 'POST',

@@ -15,6 +15,12 @@ import {
 import { HorizonType, Defect, DepartmentType, AuditLogEntry, RoleType } from '../../../types';
 import { MergedSlotDisplay } from '../../../api/idleCapacity';
 import { CORRIDOR_DATA, DEPARTMENTS_INFO, SYSTEM_META } from '../../../config/constants';
+import { canonicalDepartment, departmentMatches, formatSectionLabel, formatSlotWindow } from '../../../utils/displayFormatting';
+
+const defectMatchesDepartment = (defect: Defect, department: DepartmentType): boolean => {
+  if (department === 'ALL') return true;
+  return departmentMatches(defect.department ?? defect.source_system, defect.defect_id, department);
+};
 
 interface PlanScheduleViewProps {
   horizon: HorizonType;
@@ -104,16 +110,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
       return false;
     }
     if (activeDept !== 'ALL') {
-      const dLow = (def.department || '').toLowerCase();
-      let match = false;
-      if (activeDept === 'Engineering') {
-        match = dLow.includes('eng') || dLow.includes('tms') || def.defect_id.startsWith('TMS');
-      } else if (activeDept === 'TRD') {
-        match = dLow.includes('trd') || dLow.includes('tdms') || dLow.includes('ohe') || def.defect_id.startsWith('TDMS');
-      } else if (activeDept === 'S&T') {
-        match = dLow.includes('s&t') || dLow.includes('smms') || dLow.includes('smt') || def.defect_id.startsWith('SMMS');
-      }
-      if (!match) return false;
+      if (!defectMatchesDepartment(def, activeDept)) return false;
     }
     if (urgencyFilter !== 'ALL' && !def.urgency_band.includes(urgencyFilter)) {
       return false;
@@ -153,9 +150,12 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   const bundledCount = mergedSlots.filter(s => s.is_bundled).length;
 
   // Real Department counts from backlog
-  const engDefects = defects.filter(d => d.department === 'Engineering' || d.defect_id.startsWith('TMS'));
-  const oheDefects = defects.filter(d => d.department === 'TRD' || d.defect_id.startsWith('TDMS'));
-  const smtDefects = defects.filter(d => d.department === 'S&T' || d.defect_id.startsWith('SMMS'));
+  const engDefects = defects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'Engineering');
+  const oheDefects = defects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'TRD');
+  const smtDefects = defects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'S&T');
+  const assignedSlotByDefect = new Map(
+    mergedSlots.flatMap((slot) => slot.assigned_defect_ids.map((defectId) => [defectId, slot] as const)),
+  );
 
   const perspectiveExplainer: Record<DepartmentType, { title: string; desc: string; icon: React.FC<{ className?: string }>; color: string }> = {
     ALL: {
@@ -166,19 +166,19 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
     },
     Engineering: {
       title: 'Track Engineering (TMS) Lens',
-      desc: 'Filtered to 24 P-Way maintenance tasks: rail fractures, ultrasonic testing flaws, sleeper replacements, and turnout tamping.',
+        desc: 'Filtered to 22 P-Way maintenance tasks: rail fractures, ultrasonic testing flaws, sleeper replacements, and turnout tamping.',
       icon: Shield,
       color: 'text-[var(--accent-steel)]',
     },
     TRD: {
       title: 'Traction / OHE (TDMS) Lens',
-      desc: 'Filtered to 14 Electrical OHE tasks: 25 kV AC catenary adjustments, contact wire wear, insulator wash, and power shadow blocks.',
+        desc: 'Filtered to 14 Electrical OHE tasks: 25 kV AC catenary adjustments, contact wire wear, insulator wash, and power shadow blocks.',
       icon: Zap,
       color: 'text-[var(--accent-amber)]',
     },
     'S&T': {
       title: 'Signals & Telecom (S&T / SSMT) Lens',
-      desc: 'Filtered to 14 S&T tasks: electronic interlocking (EI), point machines, axle counter track circuits, and signalling cables.',
+        desc: 'Filtered to 16 S&T tasks: electronic interlocking (EI), point machines, axle counter track circuits, and signalling cables.',
       icon: Radio,
       color: 'text-[var(--accent-green)]',
     },
@@ -520,7 +520,11 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                             )}
                           </div>
                           <span className="text-[11px] text-[var(--text-muted)] font-mono mt-0.5 block">
-                            Start: <strong className="text-[var(--text-heading)]">{slot.start_datetime.replace('T', ' ')}</strong> ({slot.duration_hours}h)
+                            <span className="text-[var(--text-heading)]">{slot.section_name || slot.section_id}</span>
+                            {' • '}
+                            <span>From</span>
+                            {' '}
+                            <strong className="text-[var(--text-heading)]">{formatSlotWindow(slot.start_datetime, slot.duration_hours, slot.end_datetime)}</strong>
                           </span>
                         </div>
                       </div>
@@ -605,6 +609,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                 <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)]">
                   <th className="pb-3 font-semibold">Defect ID</th>
                   <th className="pb-3 font-semibold">Department & Section</th>
+                  <th className="pb-3 font-semibold">Assigned block</th>
                   <th className="pb-3 font-semibold">Defect Type</th>
                   <th className="pb-3 font-semibold">Urgency Band</th>
                   <th className="pb-3 font-semibold text-right">Duration</th>
@@ -614,7 +619,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {filteredDefects.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[var(--text-muted)]">
+                    <td colSpan={7} className="py-8 text-center text-[var(--text-muted)]">
                       No defects found matching current filters.
                     </td>
                   </tr>
@@ -642,6 +647,17 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                             {defect.department}
                           </span>
                           <span>{defect.section_id}</span>
+                        </td>
+                        <td className="py-2.5 text-[var(--text-body)]">
+                          {(() => {
+                            const slot = assignedSlotByDefect.get(defect.defect_id);
+                            return slot ? (
+                              <div>
+                                <div>{formatSectionLabel(slot.section_name, slot.section_id)}</div>
+                                <div className="text-[10px] text-[var(--text-muted)]">{formatSlotWindow(slot.start_datetime, slot.duration_hours, slot.end_datetime)}</div>
+                              </div>
+                            ) : 'Unscheduled';
+                          })()}
                         </td>
                         <td className="py-2.5 text-[var(--text-heading)] max-w-[220px] truncate">
                           {defect.defect_type}

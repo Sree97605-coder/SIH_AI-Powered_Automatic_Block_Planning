@@ -33,6 +33,7 @@ export interface BlockSlot {
   section_name?: string;
   horizon: HorizonType;
   start_datetime: string;
+  end_datetime?: string;
   duration_hours: number;
   slot_source: 'Timetable' | 'GoodsForecast' | 'MegaBlock' | string;
   is_night_window?: boolean;
@@ -86,8 +87,12 @@ export interface PlanComparisonRow {
 export interface OverridePreviewResponse {
   feasible: boolean;
   reason?: string | null;
+  horizon?: HorizonType;
+  defect_id?: string;
   available_hours: number;
   required_hours: number;
+  original_slot_id?: string | null;
+  target_slot_id?: string | null;
   newly_deferred: string[];
   newly_cleared: string[];
   priority_alert: boolean;
@@ -97,10 +102,6 @@ export interface OverridePreviewResponse {
   reason_category_valid_for_displacement: boolean;
   metrics_before: Record<string, number>;
   metrics_after?: Record<string, number> | null;
-  original_slot_id?: string | null;
-  target_slot_id?: string | null;
-  horizon?: HorizonType;
-  defect_id?: string;
 }
 
 /**

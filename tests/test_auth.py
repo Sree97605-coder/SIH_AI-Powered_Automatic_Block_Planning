@@ -154,7 +154,7 @@ class AuthenticationTests(unittest.TestCase):
         connection = ensure_users_db(seed_path)
         try:
             usernames = [row[0] for row in connection.execute("SELECT username FROM users ORDER BY user_id").fetchall()]
-            self.assertEqual(usernames, ["admin", "head", "tms", "smms", "tdms"])
+            self.assertEqual(usernames, ["coa.admin", "division.head", "tms.engineer", "smms.engineer", "tdms.engineer"])
             self.assertTrue(
                 all(verify_password("123456789", row[1]) for row in connection.execute("SELECT username, hashed_password FROM users"))
             )
@@ -164,8 +164,31 @@ class AuthenticationTests(unittest.TestCase):
         connection = ensure_users_db(seed_path)
         try:
             users = connection.execute("SELECT username FROM users ORDER BY user_id").fetchall()
-            self.assertEqual([row[0] for row in users], ["admin", "head", "tms", "smms", "tdms"])
+            self.assertEqual([row[0] for row in users], ["coa.admin", "division.head", "tms.engineer", "smms.engineer", "tdms.engineer"])
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM users").fetchone()[0], 5)
+        finally:
+            connection.close()
+            seed_path.unlink(missing_ok=True)
+
+    def test_legacy_demo_usernames_are_migrated(self) -> None:
+        seed_path = Path(tempfile.gettempdir()) / "rail-block-planning-legacy-demo-seed.db"
+        seed_path.unlink(missing_ok=True)
+
+        connection = ensure_users_db(seed_path, seed_demo_accounts=False)
+        try:
+            connection.execute(
+                "INSERT INTO users (username, hashed_password, role, department, created_at) VALUES (?, ?, ?, ?, ?)",
+                ("admin", hash_password("123456789"), "COA_ADMIN", None, datetime.now(timezone.utc).isoformat()),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        connection = ensure_users_db(seed_path)
+        try:
+            self.assertEqual(connection.execute("SELECT username FROM users").fetchone()[0], "coa.admin")
+            self.assertIsNotNone(api.authenticate_user("coa.admin", "123456789"))
+            self.assertIsNone(api.authenticate_user("admin", "123456789"))
         finally:
             connection.close()
             seed_path.unlink(missing_ok=True)

@@ -578,6 +578,17 @@ def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
     defect_duration = float(defect_row.get("estimated_duration_hours", 0) or 0.0)
     target_slot_row = target_slots.iloc[0]
 
+    if current_slot_id and str(current_slot_id) == str(target_slot_id):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "reason": "same_slot_noop",
+                "message": "This override targets the defect's current slot and would be a no-op; choose a different slot.",
+                "current_slot_id": current_slot_id,
+                "target_slot_id": target_slot_id,
+            },
+        )
+
     available_hours = _slot_remaining_hours(target_slot_id, slots_df, slot_lookup, defects_df)
     required_hours = defect_duration
 
@@ -1044,6 +1055,10 @@ def preview_override(
     result = {
         "feasible": preview["feasible"],
         "reason": preview.get("reason"),
+        "horizon": preview.get("horizon"),
+        "defect_id": preview.get("defect_id"),
+        "original_slot_id": preview.get("original_slot_id"),
+        "target_slot_id": preview.get("target_slot_id"),
         "available_hours": preview.get("available_hours"),
         "required_hours": preview.get("required_hours"),
         "newly_deferred": preview.get("newly_deferred", []),
@@ -1068,11 +1083,28 @@ def confirm_override(
     if reason_category not in VALID_REASON_CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid reason_category. Must be one of the fixed override categories.")
 
+    horizon = _normalize_horizon(payload.get("horizon", ""))
+    defect_id = str(payload.get("defect_id", "")).strip()
+    target_slot_id = str(payload.get("target_slot_id", "")).strip()
+    _, _, live_schedule = _load_live_state(horizon)
+    _, defect_slot_lookup = _schedule_lookup(live_schedule)
+    current_slot_id = defect_slot_lookup.get(defect_id)
+    if current_slot_id and current_slot_id == target_slot_id:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "reason": "same_slot_noop",
+                "message": "This override targets the defect's current slot and would be a no-op; choose a different slot.",
+                "current_slot_id": current_slot_id,
+                "target_slot_id": target_slot_id,
+            },
+        )
+
     preview = _build_override_preview(
         {
-            "defect_id": payload.get("defect_id"),
-            "target_slot_id": payload.get("target_slot_id"),
-            "horizon": payload.get("horizon"),
+            "defect_id": defect_id,
+            "target_slot_id": target_slot_id,
+            "horizon": horizon,
             "reason_category": reason_category,
         }
     )
@@ -1083,6 +1115,37 @@ def confirm_override(
     changed_by = str(payload.get("changed_by", "")).strip()
     if not changed_by:
         raise HTTPException(status_code=400, detail="changed_by is required.")
+
+    conn = _ensure_override_db()
+    try:
+        recent_duplicate = _duplicate_override_recent(
+            conn,
+            preview["defect_id"],
+            preview["target_slot_id"],
+            changed_by,
+        )
+        if recent_duplicate is not None:
+            return {
+                "message": "Override confirmed and committed.",
+                "horizon": preview["horizon"],
+                "defect_id": preview["defect_id"],
+                "target_slot_id": preview["target_slot_id"],
+                "schedule": _clean_frame(pd.DataFrame([slot.__dict__ for slot in preview["scheduled_slots"]])),
+                "unscheduled": _clean_frame(preview["unscheduled_df"]),
+            }
+
+        previous_override_id = _get_previous_override_id(conn, preview["defect_id"])
+        if previous_override_id is not None and payload.get("acknowledge_reoverride") is not True:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "reason": "reoverride_requires_acknowledgement",
+                    "message": "This defect already has a prior override. Repeat changes require explicit acknowledgment.",
+                    "previous_override_id": previous_override_id,
+                },
+            )
+    finally:
+        conn.close()
 
     reason_freetext = payload.get("reason_freetext")
     if reason_freetext is not None:
@@ -1100,8 +1163,8 @@ def confirm_override(
     learnable = LEARNABLE_REASON_FLAGS[reason_category]
     now = datetime.now(timezone.utc).isoformat()
 
-    schedule_path = OPTIMIZED_DIR / f"{payload['horizon']}_schedule.csv"
-    unscheduled_path = OPTIMIZED_DIR / f"unscheduled_{payload['horizon']}_defects.csv"
+    schedule_path = OPTIMIZED_DIR / f"{horizon}_schedule.csv"
+    unscheduled_path = OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv"
 
     schedule_backup = schedule_path.read_text(encoding="utf-8") if schedule_path.exists() else None
     unscheduled_backup = unscheduled_path.read_text(encoding="utf-8") if unscheduled_path.exists() else None

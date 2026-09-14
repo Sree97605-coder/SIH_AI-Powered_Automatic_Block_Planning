@@ -1527,6 +1527,171 @@ class ClassicalOptimizationTests(unittest.TestCase):
         self.assertNotIn("setReasonCategory('weather_or_emergency')", source)
         self.assertNotIn("setReasonCategory('emergency_reprioritization')", source)
 
+    def test_confirm_override_rejects_same_slot_noop(self) -> None:
+        """A same-slot override is a no-op and must be rejected with a clear 400 validation error."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            self._make_p1_fixture(tmp_path)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                with _patch_section_by_id():
+                    with self.assertRaises(HTTPException) as exc:
+                        api.confirm_override(
+                            {
+                                "defect_id": "P3-SCHED",
+                                "target_slot_id": "SLOT-B",
+                                "horizon": "weekly",
+                                "changed_by": "test_officer",
+                                "reason_category": "weather_or_emergency",
+                                "reason_freetext": "This is the current slot and should be rejected.",
+                            }
+                        )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+            self.assertEqual(exc.exception.status_code, 400)
+            self.assertIn("current slot", str(exc.exception.detail).lower())
+
+    def test_confirm_override_requires_reoverride_acknowledgement(self) -> None:
+        """Second override on an already-overridden defect requires explicit acknowledgment."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            defects = pd.DataFrame(
+                [
+                    {"defect_id": "R-1", "section_id": "SEC-TEST", "department": "Engineering", "estimated_duration_hours": 2.0, "urgency_band": "P2 - Urgent", "final_priority_score": 70.0},
+                    {"defect_id": "R-2", "section_id": "SEC-TEST", "department": "TRD", "estimated_duration_hours": 1.5, "urgency_band": "P3 - Planned", "final_priority_score": 40.0},
+                ]
+            )
+            slots = pd.DataFrame(
+                [
+                    {"slot_id": "SLOT-1", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T00:00:00", "end_datetime": "2026-09-07T03:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "SLOT-2", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T03:00:00", "end_datetime": "2026-09-07T06:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                ]
+            )
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+            with _patch_section_by_id():
+                scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
+            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(tmp_path / "optimized" / "weekly_schedule.csv", index=False)
+            unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
+
+            initial_slot = next(slot.slot_id for slot in scheduled if "R-1" in getattr(slot, "assigned_defect_ids", []))
+            alternate_slot = "SLOT-1" if initial_slot == "SLOT-2" else "SLOT-2"
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                first_payload = {"defect_id": "R-1", "target_slot_id": alternate_slot, "horizon": "weekly", "changed_by": "officer_a", "reason_category": "prioritization_mistake", "reason_freetext": "First override for the schedule correction."}
+                with _patch_section_by_id():
+                    api.confirm_override(first_payload)
+
+                with self.assertRaises(HTTPException) as exc:
+                    with _patch_section_by_id():
+                        api.confirm_override({
+                            "defect_id": "R-1",
+                            "target_slot_id": initial_slot,
+                            "horizon": "weekly",
+                            "changed_by": "officer_b",
+                            "reason_category": "missed_bundling_opportunity",
+                            "reason_freetext": "This is a second override without explicit acknowledgment.",
+                        })
+                self.assertEqual(exc.exception.status_code, 400)
+                self.assertIn("acknowledg", str(exc.exception.detail).lower())
+
+                with _patch_section_by_id():
+                    result = api.confirm_override({
+                        "defect_id": "R-1",
+                        "target_slot_id": initial_slot,
+                        "horizon": "weekly",
+                        "changed_by": "officer_b",
+                        "reason_category": "missed_bundling_opportunity",
+                        "reason_freetext": "This is a second override with explicit acknowledgment.",
+                        "acknowledge_reoverride": True,
+                    })
+                self.assertEqual(result["message"], "Override confirmed and committed.")
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
+    def test_confirm_override_real_cross_slot_updates_live_schedule(self) -> None:
+        """A real cross-slot override updates both the audit log and the live schedule the dashboard reads."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            defects = pd.DataFrame(
+                [
+                    {"defect_id": "X-1", "section_id": "SEC-TEST", "department": "Engineering", "estimated_duration_hours": 2.0, "urgency_band": "P2 - Urgent", "final_priority_score": 70.0},
+                    {"defect_id": "X-2", "section_id": "SEC-TEST", "department": "TRD", "estimated_duration_hours": 1.5, "urgency_band": "P3 - Planned", "final_priority_score": 40.0},
+                ]
+            )
+            slots = pd.DataFrame(
+                [
+                    {"slot_id": "SLOT-1", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T00:00:00", "end_datetime": "2026-09-07T03:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "SLOT-2", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T03:00:00", "end_datetime": "2026-09-07T06:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                ]
+            )
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+            with _patch_section_by_id():
+                scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
+            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(tmp_path / "optimized" / "weekly_schedule.csv", index=False)
+            unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
+
+            initial_slot = next(slot.slot_id for slot in scheduled if "X-1" in getattr(slot, "assigned_defect_ids", []))
+            target_slot = "SLOT-1" if initial_slot == "SLOT-2" else "SLOT-2"
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            original_db_path = api.OVERRIDE_DB_PATH
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                api.OVERRIDE_DB_PATH = tmp_path / "override_log.db"
+
+                with _patch_section_by_id():
+                    result = api.confirm_override({
+                        "defect_id": "X-1",
+                        "target_slot_id": target_slot,
+                        "horizon": "weekly",
+                        "changed_by": "officer_a",
+                        "reason_category": "prioritization_mistake",
+                        "reason_freetext": "Real cross-slot override for verification.",
+                    })
+                self.assertEqual(result["message"], "Override confirmed and committed.")
+
+                live_schedule = pd.read_csv(tmp_path / "optimized" / "weekly_schedule.csv")
+                current_slot_row = live_schedule[live_schedule["slot_id"].astype(str) == initial_slot].iloc[0]
+                target_slot_row = live_schedule[live_schedule["slot_id"].astype(str) == target_slot].iloc[0]
+                self.assertNotIn("X-1", str(current_slot_row.get("assigned_defect_ids", "")))
+                self.assertIn("X-1", str(target_slot_row.get("assigned_defect_ids", "")))
+
+                conn = sqlite3.connect(f"file:{tmp_path / 'override_log.db'}?mode=ro", uri=True)
+                try:
+                    rows = conn.execute("SELECT defect_id, original_slot_id, new_slot_id FROM overrides ORDER BY override_id").fetchall()
+                finally:
+                    conn.close()
+                self.assertTrue(any(row[0] == "X-1" and row[2] == target_slot for row in rows))
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+                api.OVERRIDE_DB_PATH = original_db_path
+
     def test_confirm_override_rejects_short_p1_justification(self) -> None:
         """P1-displacing overrides require a real free-text justification of at least 20 characters."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1684,6 +1849,9 @@ class ClassicalOptimizationTests(unittest.TestCase):
             )
             unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
 
+            initial_slot = next(slot.slot_id for slot in scheduled if "R-1" in getattr(slot, "assigned_defect_ids", []))
+            alternate_slot = "SLOT-1" if initial_slot == "SLOT-2" else "SLOT-2"
+
             original_data_dir = api.DATA_DIR
             original_optimized_dir = api.OPTIMIZED_DIR
             original_db_path = api.OVERRIDE_DB_PATH
@@ -1694,7 +1862,7 @@ class ClassicalOptimizationTests(unittest.TestCase):
 
                 first_payload = {
                     "defect_id": "R-1",
-                    "target_slot_id": "SLOT-2",
+                    "target_slot_id": alternate_slot,
                     "horizon": "weekly",
                     "changed_by": "officer_a",
                     "reason_category": "prioritization_mistake",
@@ -1702,11 +1870,12 @@ class ClassicalOptimizationTests(unittest.TestCase):
                 }
                 second_payload = {
                     "defect_id": "R-1",
-                    "target_slot_id": "SLOT-1",
+                    "target_slot_id": initial_slot,
                     "horizon": "weekly",
                     "changed_by": "officer_b",
                     "reason_category": "missed_bundling_opportunity",
                     "reason_freetext": "Second override after the current plan changed.",
+                    "acknowledge_reoverride": True,
                 }
 
                 with _patch_section_by_id():
