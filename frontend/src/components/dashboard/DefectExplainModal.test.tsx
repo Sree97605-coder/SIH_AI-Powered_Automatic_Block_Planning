@@ -552,3 +552,116 @@ describe('PlanScheduleView override badges', () => {
     expect(screen.queryByText('OVERRIDDEN')).not.toBeInTheDocument();
   });
 });
+
+describe('PlanScheduleView search behavior', () => {
+  const scheduleSlots = [
+    {
+      slot_id: 'SLOT-A',
+      section_id: 'SEC-01',
+      section_name: 'Test Section',
+      start_datetime: '2026-09-20T00:00:00',
+      end_datetime: '2026-09-20T04:00:00',
+      duration_hours: 4,
+      slot_source: 'Timetable',
+      is_occupied: true,
+      assigned_defect_ids: ['TMS-001'],
+      assigned_defect_count: 1,
+      departments_involved: ['Engineering'],
+      is_bundled: false,
+      bundle_type: 'Single Task Block',
+    },
+    {
+      slot_id: 'SLOT-B',
+      section_id: 'SEC-01',
+      section_name: 'Test Section',
+      start_datetime: '2026-09-21T00:00:00',
+      end_datetime: '2026-09-21T04:00:00',
+      duration_hours: 4,
+      slot_source: 'Timetable',
+      is_occupied: true,
+      assigned_defect_ids: ['TMS-002'],
+      assigned_defect_count: 1,
+      departments_involved: ['Engineering'],
+      is_bundled: false,
+      bundle_type: 'Single Task Block',
+    },
+  ];
+
+  const scheduleDefects: Defect[] = [
+    { ...defect, defect_id: 'TMS-001' },
+    { ...defect, defect_id: 'TMS-002' },
+  ];
+
+  const renderPlan = (
+    searchResetKey = 0,
+    horizon: 'weekly' | 'monthly' = 'monthly',
+    initialViewMode: 'control' | 'engineer' = 'engineer',
+  ) => renderPlanScheduleView(
+    <PlanScheduleView
+      horizon={horizon}
+      mergedSlots={scheduleSlots}
+      defects={scheduleDefects}
+      isLoading={false}
+      onSelectDefect={() => undefined}
+      searchResetKey={searchResetKey}
+      initialViewMode={initialViewMode}
+    />,
+  );
+
+  it('resets an active search after CRIS refresh while preserving manual search and clear behavior', () => {
+    const { rerender } = renderPlan();
+    fireEvent.click(screen.getByRole('button', { name: /Defect Worklist/ }));
+    const search = screen.getByPlaceholderText(/Search slot ID/i);
+
+    fireEvent.change(search, { target: { value: 'TMS-001' } });
+    expect(screen.getByText('Showing filtered results for:')).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }));
+    expect(screen.queryByText('Showing filtered results for:')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+
+    fireEvent.change(screen.getByPlaceholderText(/Search slot ID/i), { target: { value: 'TMS-001' } });
+    rerender(
+      <PlanScheduleView
+        horizon="monthly"
+        mergedSlots={scheduleSlots}
+        defects={scheduleDefects}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+        searchResetKey={1}
+        initialViewMode="engineer"
+      />,
+    );
+    expect(screen.queryByText('Showing filtered results for:')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+  });
+
+  it('shows an explicit no-match state instead of an empty schedule', () => {
+    renderPlan(0, 'monthly', 'control');
+    fireEvent.click(screen.getByRole('button', { name: /Control Timeline/ }));
+    fireEvent.change(screen.getByPlaceholderText(/Search slot ID/i), { target: { value: 'TMS-CRIS-X' } });
+
+    expect(screen.getByText('No schedule matches this filter.')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Clear filter' }).length).toBeGreaterThan(0);
+  });
+
+  it('keeps the same unfiltered schedule contract for weekly and monthly horizons', () => {
+    const { rerender } = renderPlan(0, 'weekly');
+    expect(screen.getByRole('heading', { name: /Weekly \(7d\)/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+
+    rerender(
+      <PlanScheduleView
+        horizon="monthly"
+        mergedSlots={scheduleSlots}
+        defects={scheduleDefects}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+        initialViewMode="engineer"
+      />,
+    );
+    expect(screen.getByRole('heading', { name: /Monthly \(30d\)/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+  });
+});

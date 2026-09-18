@@ -36,6 +36,8 @@ interface PlanScheduleViewProps {
   role?: RoleType;
   unscheduledDefects?: UnscheduledDefect[];
   pendingDefects?: Array<{ defect_id: string; status: string; source_system?: string; payload?: Record<string, unknown> }>;
+  searchResetKey?: number;
+  scheduleError?: unknown;
 }
 
 export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
@@ -51,6 +53,8 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   role = 'COA_ADMIN',
   unscheduledDefects = [],
   pendingDefects = [],
+  searchResetKey = 0,
+  scheduleError,
 }) => {
   const [viewMode, setViewMode] = useState<'control' | 'engineer'>(initialViewMode);
   const [activeDept, setActiveDept] = useState<DepartmentType>(departmentPerspective);
@@ -70,6 +74,10 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
       setActiveDept(departmentPerspective);
     }
   }, [departmentPerspective]);
+
+  useEffect(() => {
+    setSearchQuery('');
+  }, [searchResetKey]);
 
   // Robust Filtered Slots for Timeline
   const filteredSlots = mergedSlots.filter((slot) => {
@@ -427,6 +435,25 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
           />
         </div>
 
+        {searchQuery && (
+          <div className="w-full flex items-center justify-between gap-3 rounded-xl border border-[var(--accent-amber-border)] bg-[var(--accent-amber-bg)] px-3 py-2 text-[10px] font-mono text-[var(--accent-amber)]">
+            <span>Showing filtered results for: <strong>{searchQuery}</strong></span>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="font-bold underline underline-offset-2 cursor-pointer"
+            >
+              Clear filter
+            </button>
+          </div>
+        )}
+
+        {Boolean(scheduleError) && (
+          <div role="alert" className="w-full rounded-xl border border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] px-3 py-2 text-xs font-mono text-[var(--accent-red)]">
+            Unable to load the {horizon} schedule. Existing schedule data was not treated as empty; refresh and try again.
+          </div>
+        )}
+
         {/* Section Filter */}
         <div className="flex items-center gap-2 text-xs font-mono">
           <label htmlFor="schedule-section-filter" className="text-[var(--text-muted)]">Section:</label>
@@ -514,7 +541,14 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
           <div className="space-y-3">
             {filteredSlots.length === 0 ? (
               <div className="p-8 text-center text-xs font-mono text-[var(--text-muted)]">
-                No block slots found matching {activeDept !== 'ALL' ? `${activeDept} department` : 'current'} filter criteria.
+                {searchQuery ? (
+                  <>
+                    <div>No schedule matches this filter.</div>
+                    <button type="button" onClick={() => setSearchQuery('')} className="mt-2 font-bold text-[var(--accent-amber)] underline underline-offset-2 cursor-pointer">Clear filter</button>
+                  </>
+                ) : (
+                  <>No block slots found matching {activeDept !== 'ALL' ? `${activeDept} department` : 'current'} filter criteria.</>
+                )}
               </div>
             ) : (
               filteredSlots.map((slot) => {
@@ -658,7 +692,12 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                 {filteredDefects.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-[var(--text-muted)]">
-                      No defects found matching current filters.
+                      {searchQuery ? (
+                        <>
+                          <div>No defects match this filter.</div>
+                          <button type="button" onClick={() => setSearchQuery('')} className="mt-2 font-bold text-[var(--accent-amber)] underline underline-offset-2 cursor-pointer">Clear filter</button>
+                        </>
+                      ) : 'No defects found matching current filters.'}
                     </td>
                   </tr>
                 ) : (

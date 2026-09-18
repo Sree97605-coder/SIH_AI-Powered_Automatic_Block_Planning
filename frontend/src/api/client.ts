@@ -174,12 +174,8 @@ export const api = {
   },
 
   getSchedule: async (horizon: HorizonType): Promise<ScheduledSlot[]> => {
-    try {
-      const data = await request<ScheduledSlot[]>(`/schedules/${horizon}`);
-      return Array.isArray(data) ? data : [];
-    } catch {
-      return [];
-    }
+    const data = await request<ScheduledSlot[]>(`/schedules/${horizon}`);
+    return Array.isArray(data) ? data : [];
   },
 
   getUnscheduled: async (horizon: HorizonType): Promise<UnscheduledDefect[]> => {

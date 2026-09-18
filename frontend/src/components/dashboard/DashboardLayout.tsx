@@ -41,6 +41,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
   const [perspective, setPerspective] = useState<PerspectiveType>('division');
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
   const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null);
+  const [planSearchResetKey, setPlanSearchResetKey] = useState(0);
   const role = user?.role ?? 'DIVISION_HEAD';
   const engineerDepartment: DepartmentType = user?.department === 'TMS'
     ? 'Engineering'
@@ -78,6 +79,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         queryClient.invalidateQueries({ queryKey: ['unscheduled'] }),
         queryClient.invalidateQueries({ queryKey: ['classifications'] }),
       ]);
+      setPlanSearchResetKey((current) => current + 1);
       if (result.status === 'SCHEDULED' && result.slot_id && result.horizon) {
         alert(`New defect ${result.defect_id} scheduled immediately into slot ${result.slot_id} (${result.horizon}) — no full re-optimization needed.`);
       } else if (result.duplicate) {
@@ -99,6 +101,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
     rawSlots,
     rawSchedule,
     isLoading: isLoadingSlots,
+    error: scheduleError,
   } = useMergedSlots(horizon, selectedSectionFilter);
   const { data: classifications = [], isLoading: isLoadingClassifications } = useClassifications(horizon);
   const { data: pendingDefects = [] } = usePendingDefects();
@@ -224,6 +227,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
               role={role}
               unscheduledDefects={visibleClassifications}
               pendingDefects={visiblePendingDefects}
+              searchResetKey={planSearchResetKey}
+              scheduleError={scheduleError}
             />
           )}
 
