@@ -115,7 +115,10 @@ def _get_real_defect_schema() -> list[str]:
     schema_path = DATA_DIR / "prioritized_defects.csv"
     if schema_path.exists():
         try:
-            return list(pd.read_csv(schema_path, nrows=0).columns)
+            columns = list(pd.read_csv(schema_path, nrows=0).columns)
+            if "reported_at" not in columns:
+                columns.append("reported_at")
+            return columns
         except Exception:
             pass
     return [
@@ -204,6 +207,7 @@ def _normalize_ingest_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "asset_impact": asset_impact,
         "description": description,
         "source_system": source_system,
+        "reported_at": str(payload.get("reported_at") or datetime.now(timezone.utc).isoformat()),
     }
 
     schema = _get_real_defect_schema()
@@ -225,6 +229,8 @@ def _append_defect_to_master_dataset(defect_row: dict[str, Any]) -> None:
 
     if "defect_id" not in df.columns:
         df["defect_id"] = pd.Series(dtype="object")
+    if "reported_at" not in df.columns:
+        df["reported_at"] = None
 
     normalized_row = {field: defect_row.get(field) for field in schema}
     defect_id = str(normalized_row.get("defect_id", "")).strip()
@@ -830,7 +836,9 @@ def ingest_defect(payload: dict[str, Any], response: Response) -> dict[str, Any]
         ).fetchone()
         if existing is not None:
             existing_payload = json.loads(existing[0]) if existing[0] else {}
-            if existing_payload == normalized:
+            comparable_existing = {key: value for key, value in existing_payload.items() if key != "reported_at"}
+            comparable_normalized = {key: value for key, value in normalized.items() if key != "reported_at"}
+            if comparable_existing == comparable_normalized:
                 response.status_code = 200
                 return {
                     "defect_id": defect_id,

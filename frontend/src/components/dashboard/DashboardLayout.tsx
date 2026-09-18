@@ -15,6 +15,7 @@ import {
   useMergedSlots,
   useDefects,
   useClassifications,
+  usePendingDefects,
   useAuditLog,
 } from '../../api/hooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,9 +27,11 @@ interface DashboardLayoutProps {
   onBackToLanding: () => void;
 }
 
-export const invalidateLiveScheduleQueries = (queryClient: Pick<QueryClient, 'invalidateQueries'>, horizon: HorizonType): void => {
-  void queryClient.invalidateQueries({ queryKey: ['schedule', horizon] });
-  void queryClient.invalidateQueries({ queryKey: ['slots', horizon] });
+export const invalidateLiveScheduleQueries = async (queryClient: Pick<QueryClient, 'invalidateQueries'>, horizon: HorizonType): Promise<void> => {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['schedule', horizon] }),
+    queryClient.invalidateQueries({ queryKey: ['slots', horizon] }),
+  ]);
 };
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLanding }) => {
@@ -67,6 +70,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         source_system: 'TMS',
       };
       const result = await import('../../api/client').then(({ api }) => api.simulateDefect(payload));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['defects'] }),
+        queryClient.invalidateQueries({ queryKey: ['defects', 'pending'] }),
+        queryClient.invalidateQueries({ queryKey: ['schedule', 'monthly'] }),
+        queryClient.invalidateQueries({ queryKey: ['schedule', 'weekly'] }),
+        queryClient.invalidateQueries({ queryKey: ['unscheduled'] }),
+        queryClient.invalidateQueries({ queryKey: ['classifications'] }),
+      ]);
       if (result.status === 'SCHEDULED' && result.slot_id && result.horizon) {
         alert(`New defect ${result.defect_id} scheduled immediately into slot ${result.slot_id} (${result.horizon}) — no full re-optimization needed.`);
       } else if (result.duplicate) {
@@ -90,6 +101,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
     isLoading: isLoadingSlots,
   } = useMergedSlots(horizon, selectedSectionFilter);
   const { data: classifications = [], isLoading: isLoadingClassifications } = useClassifications(horizon);
+  const { data: pendingDefects = [] } = usePendingDefects();
   const { data: auditEntries = [], isLoading: isLoadingAudit, refetch: refetchAudit } = useAuditLog(role === 'COA_ADMIN');
 
   const isBackendConnected = !isHealthError && healthData?.status === 'ok';
@@ -130,6 +142,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
   const visibleClassifications = role === 'DEPT_ENGINEER'
     ? classifications.filter((item) => visibleDefectIds.has(item.defect_id) || matchesDepartment(item.department, item.defect_id))
     : classifications;
+  const visiblePendingDefects = role === 'DEPT_ENGINEER'
+    ? pendingDefects.filter((item) => matchesDepartment(String(item.payload?.department ?? item.source_system), item.defect_id))
+    : pendingDefects;
   const visibleMergedSlots = role === 'DEPT_ENGINEER'
     ? mergedSlots
         .map((slot) => {
@@ -207,6 +222,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
               departmentPerspective={activeDepartment}
               overrideEntries={auditEntries}
               role={role}
+              unscheduledDefects={visibleClassifications}
+              pendingDefects={visiblePendingDefects}
             />
           )}
 
@@ -245,8 +262,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
         schedule={rawSchedule}
         slots={rawSlots}
         canOverride={role === 'COA_ADMIN'}
-        onConfirmSuccess={() => {
-          invalidateLiveScheduleQueries(queryClient, horizon);
+        onConfirmSuccess={async () => {
+          await invalidateLiveScheduleQueries(queryClient, horizon);
         }}
       />
 

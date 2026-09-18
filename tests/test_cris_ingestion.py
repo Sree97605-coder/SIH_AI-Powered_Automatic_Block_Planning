@@ -204,6 +204,7 @@ def test_ingest_defect_creates_pending_reoptimization_record(client: TestClient)
     assert len(rows) == 1
     assert rows[0]["defect_id"] == VALID_PAYLOAD["defect_id"]
     assert rows[0]["status"] == "PENDING_REOPTIMIZATION"
+    assert rows[0]["payload"]["reported_at"]
 
 
 def test_ingest_defect_is_idempotent_for_same_payload(client: TestClient) -> None:

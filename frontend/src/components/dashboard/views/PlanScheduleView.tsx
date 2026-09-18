@@ -12,7 +12,7 @@ import {
   Shield,
   Info,
 } from 'lucide-react';
-import { HorizonType, Defect, DepartmentType, AuditLogEntry, RoleType } from '../../../types';
+import { HorizonType, Defect, DepartmentType, AuditLogEntry, RoleType, UnscheduledDefect } from '../../../types';
 import { MergedSlotDisplay } from '../../../api/idleCapacity';
 import { CORRIDOR_DATA, DEPARTMENTS_INFO, SYSTEM_META } from '../../../config/constants';
 import { canonicalDepartment, departmentMatches, formatSectionLabel, formatSlotWindow } from '../../../utils/displayFormatting';
@@ -34,6 +34,8 @@ interface PlanScheduleViewProps {
   departmentPerspective?: 'ALL' | 'Engineering' | 'TRD' | 'S&T';
   overrideEntries?: AuditLogEntry[];
   role?: RoleType;
+  unscheduledDefects?: UnscheduledDefect[];
+  pendingDefects?: Array<{ defect_id: string; status: string; source_system?: string; payload?: Record<string, unknown> }>;
 }
 
 export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
@@ -47,6 +49,8 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   departmentPerspective = 'ALL',
   overrideEntries = [],
   role = 'COA_ADMIN',
+  unscheduledDefects = [],
+  pendingDefects = [],
 }) => {
   const [viewMode, setViewMode] = useState<'control' | 'engineer'>(initialViewMode);
   const [activeDept, setActiveDept] = useState<DepartmentType>(departmentPerspective);
@@ -104,8 +108,42 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
     return true;
   });
 
-  // Robust Filtered Defects for Worklist Table
-  const filteredDefects = defects.filter((def) => {
+  const pendingAsUnscheduled = pendingDefects.map((item): UnscheduledDefect => ({
+    defect_id: item.defect_id,
+    section_id: String(item.payload?.section_id ?? 'Unknown section'),
+    urgency_band: String(item.payload?.urgency_band ?? 'Pending'),
+    estimated_duration_hours: Number(item.payload?.estimated_duration_hours ?? 0),
+    department: String(item.payload?.department ?? item.source_system ?? 'Engineering'),
+    description: String(item.payload?.description ?? 'CRIS defect pending re-optimization.'),
+    reported_at: String(item.payload?.reported_at ?? ''),
+    reason: 'CONTENTION',
+  }));
+  const unscheduledById = new Set([
+    ...unscheduledDefects.map((item) => item.defect_id),
+    ...pendingAsUnscheduled.map((item) => item.defect_id),
+  ]);
+  const unscheduledAsDefects: Defect[] = [...unscheduledDefects, ...pendingAsUnscheduled]
+    .filter((item, index, items) => items.findIndex((candidate) => candidate.defect_id === item.defect_id) === index)
+    .map((item) => ({
+      defect_id: item.defect_id,
+      department: item.department ?? 'Engineering',
+      section_id: item.section_id,
+      defect_type: 'Planned Maintenance Order (Deferred)',
+      severity: 'Low',
+      overdue_days: 0,
+      estimated_duration_hours: item.estimated_duration_hours,
+      urgency_band: item.urgency_band || 'Pending',
+      description: item.description || item.unscheduled_reason,
+      source_system: item.defect_id.split('-')[0],
+      reported_at: item.reported_at,
+    }));
+  const searchableDefects: Defect[] = [
+    ...defects,
+    ...unscheduledAsDefects.filter((item) => !defects.some((defect) => defect.defect_id === item.defect_id)),
+  ];
+
+  // Robust Filtered Defects for Worklist Table, including unscheduled/pending CRIS defects.
+  const filteredDefects = searchableDefects.filter((def) => {
     if (selectedSectionFilter !== 'ALL' && def.section_id !== selectedSectionFilter) {
       return false;
     }
@@ -150,9 +188,9 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   const bundledCount = mergedSlots.filter(s => s.is_bundled).length;
 
   // Real Department counts from backlog
-  const engDefects = defects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'Engineering');
-  const oheDefects = defects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'TRD');
-  const smtDefects = defects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'S&T');
+  const engDefects = searchableDefects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'Engineering');
+  const oheDefects = searchableDefects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'TRD');
+  const smtDefects = searchableDefects.filter((d) => canonicalDepartment(d.department ?? d.source_system, d.defect_id) === 'S&T');
   const assignedSlotByDefect = new Map(
     mergedSlots.flatMap((slot) => slot.assigned_defect_ids.map((defectId) => [defectId, slot] as const)),
   );
@@ -639,6 +677,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                         <td className="py-2.5 font-bold text-[var(--accent-amber)]">
                           <div className="flex items-center gap-2">
                             <span>{defect.defect_id}</span>
+                            {defect.reported_at && <span className="text-[9px] font-normal text-[var(--accent-green)]">Added {new Date(defect.reported_at).toLocaleString()}</span>}
                             {renderOverrideBadge(defect.defect_id)}
                           </div>
                         </td>
@@ -656,6 +695,8 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                                 <div>{formatSectionLabel(slot.section_name, slot.section_id)}</div>
                                 <div className="text-[10px] text-[var(--text-muted)]">{formatSlotWindow(slot.start_datetime, slot.duration_hours, slot.end_datetime)}</div>
                               </div>
+                            ) : unscheduledById.has(defect.defect_id) ? (
+                              <span className="font-bold text-[var(--accent-amber)]">Unscheduled / Pending Re-optimization</span>
                             ) : 'Unscheduled';
                           })()}
                         </td>

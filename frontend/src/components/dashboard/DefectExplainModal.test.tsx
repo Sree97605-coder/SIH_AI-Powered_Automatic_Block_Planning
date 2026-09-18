@@ -447,10 +447,25 @@ describe('DefectExplainModal override guard rails', () => {
 });
 
 describe('Dashboard live refresh', () => {
-  it('invalidates schedule and slot queries after confirmation', () => {
+  it('invalidates schedule and slot queries after confirmation and can be awaited before searching by ID', async () => {
     const invalidateQueries = vi.fn();
-    invalidateLiveScheduleQueries({ invalidateQueries }, 'weekly');
+    let resolveRefresh: (() => void) | undefined;
+    const refreshPromise = new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    invalidateQueries.mockReturnValue(refreshPromise);
 
+    const completedRefresh = invalidateLiveScheduleQueries({ invalidateQueries }, 'weekly');
+    let completed = false;
+    void completedRefresh.then(() => {
+      completed = true;
+    });
+    await Promise.resolve();
+
+    expect(completed).toBe(false);
+    resolveRefresh?.();
+    await completedRefresh;
+    expect(completed).toBe(true);
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['schedule', 'weekly'] });
     expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['slots', 'weekly'] });
   });

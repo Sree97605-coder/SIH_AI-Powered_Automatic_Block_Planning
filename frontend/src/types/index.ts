@@ -25,6 +25,7 @@ export interface Defect {
   requires_extended_block?: boolean;
   unscheduled_reason?: string;
   source_system?: 'TMS' | 'SMMS' | 'TDMS' | string;
+  reported_at?: string;
 }
 
 export interface BlockSlot {
@@ -71,6 +72,8 @@ export interface UnscheduledDefect {
   mega_block_hours_needed?: number;
   department?: string;
   description?: string;
+  reported_at?: string;
+  status?: string;
 }
 
 export interface PlanComparisonRow {

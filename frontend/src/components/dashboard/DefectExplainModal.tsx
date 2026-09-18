@@ -14,7 +14,7 @@ interface DefectExplainModalProps {
   canOverride?: boolean;
   overrideEntries?: AuditLogEntry[];
   /** Called after a successful confirm so the parent can re-fetch live schedule data. */
-  onConfirmSuccess?: () => void;
+  onConfirmSuccess?: () => void | Promise<void>;
 }
 
 const REASON_OPTIONS = [
@@ -211,7 +211,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
       });
       setConfirmMessage(response.message);
       // ── Gap 3 fix: trigger parent re-fetch from live API ─────────────────
-      onConfirmSuccess?.();
+      await onConfirmSuccess?.();
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 403) {
         // Re-check: policy gate also enforced at confirm time

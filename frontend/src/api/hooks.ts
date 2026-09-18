@@ -60,6 +60,14 @@ export function useClassifications(horizon: HorizonType) {
   });
 }
 
+export function usePendingDefects() {
+  return useQuery({
+    queryKey: ['defects', 'pending'],
+    queryFn: () => api.getPendingDefects(),
+    staleTime: 30000,
+  });
+}
+
 export function useAuditLog(enabled = true) {
   return useQuery({
     queryKey: ['audit-log'],
