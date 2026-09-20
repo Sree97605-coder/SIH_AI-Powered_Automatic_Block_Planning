@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api/client';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth();
@@ -16,8 +17,10 @@ export const LoginScreen: React.FC = () => {
     setIsSubmitting(true);
     try {
       await login(username, password);
-    } catch {
-      setError('Invalid username or password.');
+    } catch (error) {
+      setError(error instanceof ApiError && error.status === 401
+        ? 'Invalid username or password.'
+        : 'Unable to reach the authentication server. Start the backend and try again.');
     } finally {
       setIsSubmitting(false);
     }

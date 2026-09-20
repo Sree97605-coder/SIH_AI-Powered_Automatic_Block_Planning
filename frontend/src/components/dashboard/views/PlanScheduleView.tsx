@@ -62,11 +62,8 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   const [urgencyFilter, setUrgencyFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'OCCUPIED' | 'IDLE'>('ALL');
 
-  // Synchronize state when topbar perspective changes
   useEffect(() => {
-    if (initialViewMode) {
-      setViewMode(initialViewMode);
-    }
+    setViewMode(initialViewMode);
   }, [initialViewMode]);
 
   useEffect(() => {
@@ -115,6 +112,36 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
     }
     return true;
   });
+
+  const groupedSlots = filteredSlots.reduce<Array<{
+    dateKey: string;
+    sections: Array<{ sectionId: string; slots: MergedSlotDisplay[] }>;
+  }>>((dateGroups, slot) => {
+    const dateKey = slot.start_datetime.slice(0, 10);
+    let dateGroup = dateGroups.find((group) => group.dateKey === dateKey);
+    if (!dateGroup) {
+      dateGroup = { dateKey, sections: [] };
+      dateGroups.push(dateGroup);
+    }
+
+    let sectionGroup = dateGroup.sections.find((group) => group.sectionId === slot.section_id);
+    if (!sectionGroup) {
+      sectionGroup = { sectionId: slot.section_id, slots: [] };
+      dateGroup.sections.push(sectionGroup);
+    }
+    sectionGroup.slots.push(slot);
+    return dateGroups;
+  }, []);
+
+  const formatDateHeader = (dateKey: string): string => {
+    const date = new Date(`${dateKey}T12:00:00`);
+    return new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(date);
+  };
 
   const pendingAsUnscheduled = pendingDefects.map((item): UnscheduledDefect => ({
     defect_id: item.defect_id,
@@ -278,26 +305,17 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
           </p>
         </div>
 
-        {/* View Switcher: Control Office (Timeline) vs Section Engineer (Table) */}
         <div className="flex items-center gap-2 p-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] shrink-0 shadow-sm">
           <button
             onClick={() => setViewMode('control')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
-              viewMode === 'control'
-                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${viewMode === 'control' ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]' : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'}`}
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>Control Timeline ({filteredSlots.length})</span>
           </button>
           <button
             onClick={() => setViewMode('engineer')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${
-              viewMode === 'engineer'
-                ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer ${viewMode === 'engineer' ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] shadow-[var(--shadow-glow-amber)]' : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'}`}
           >
             <ListFilter className="w-3.5 h-3.5" />
             <span>Defect Worklist ({filteredDefects.length})</span>
@@ -474,45 +492,27 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
         </div>
 
         {/* Status / Urgency Filter */}
-        {viewMode === 'control' ? (
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs font-mono">
-            {(['ALL', 'OCCUPIED', 'IDLE'] as const).map(st => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  statusFilter === st
-                    ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
-                }`}
-              >
-                {st}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs font-mono">
-            {(['ALL', 'P1', 'P2', 'P3'] as const).map(urg => (
-              <button
-                key={urg}
-                onClick={() => setUrgencyFilter(urg)}
-                className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                  urgencyFilter === urg
-                    ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'
-                }`}
-              >
-                {urg}
-              </button>
-            ))}
-          </div>
-        )}
+        {viewMode === 'control' && <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs font-mono">
+          <span className="px-2 text-[var(--text-muted)]">Slots</span>
+          {(['ALL', 'OCCUPIED', 'IDLE'] as const).map(st => (
+            <button key={st} onClick={() => setStatusFilter(st)} className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${statusFilter === st ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold' : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'}`}>
+              {st}
+            </button>
+          ))}
+        </div>}
+        {viewMode === 'engineer' && <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs font-mono">
+          <span className="px-2 text-[var(--text-muted)]">Defects</span>
+          {(['ALL', 'P1', 'P2', 'P3'] as const).map(urg => (
+            <button key={urg} onClick={() => setUrgencyFilter(urg)} className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${urgencyFilter === urg ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] font-bold' : 'text-[var(--text-muted)] hover:text-[var(--text-heading)]'}`}>
+              {urg}
+            </button>
+          ))}
+        </div>}
 
       </div>
 
       {/* VIEW 1: CONTROL OFFICE & DEPARTMENT TIMELINE */}
-      {viewMode === 'control' && (
-        <div className="glass-card-elevated rounded-3xl p-6 sm:p-8">
+      {viewMode === 'control' && <div className="glass-card-elevated rounded-3xl p-6 sm:p-8">
           
           <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] mb-6">
             <div className="flex items-center gap-2">
@@ -551,21 +551,33 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                 )}
               </div>
             ) : (
-              filteredSlots.map((slot) => {
-                const isMega = slot.slot_source === 'MegaBlock' || slot.duration_hours >= 6.0;
-                return (
-                  <div
-                    key={slot.slot_id}
-                    className={`p-4 rounded-2xl border transition-all ${
-                      slot.is_occupied
-                        ? isMega
-                          ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
-                          : slot.is_bundled
-                          ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber-border)]'
-                          : 'bg-[var(--bg-card-subtle)] border-[var(--border-subtle)] hover:border-[var(--accent-green-border)]'
-                        : 'bg-[var(--bg-pill)] border-dashed border-[var(--border-subtle)] opacity-75'
-                    }`}
-                  >
+              groupedSlots.map((dateGroup) => (
+                <React.Fragment key={dateGroup.dateKey}>
+                  <div className="pt-3 first:pt-0" data-testid={`weekly-date-${dateGroup.dateKey}`}>
+                    <h4 className="font-display text-sm font-bold text-[var(--text-heading)] border-b border-[var(--border-subtle)] pb-2">
+                      {formatDateHeader(dateGroup.dateKey)}
+                    </h4>
+                  </div>
+                  {dateGroup.sections.map((sectionGroup) => (
+                    <React.Fragment key={`${dateGroup.dateKey}-${sectionGroup.sectionId}`}>
+                      <div className="pt-2 text-[10px] font-mono font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                        {sectionGroup.sectionId}
+                      </div>
+                      {sectionGroup.slots.map((slot) => {
+                        const isMega = slot.slot_source === 'MegaBlock' || slot.duration_hours >= 6.0;
+                        return (
+                          <div
+                            key={slot.slot_id}
+                            className={`p-4 rounded-2xl border transition-all ${
+                              slot.is_occupied
+                                ? isMega
+                                  ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
+                                  : slot.is_bundled
+                                  ? 'bg-[var(--accent-amber-bg)] border-[var(--accent-amber-border)]'
+                                  : 'bg-[var(--bg-card-subtle)] border-[var(--border-subtle)] hover:border-[var(--accent-green-border)]'
+                                : 'bg-[var(--bg-pill)] border-dashed border-[var(--border-subtle)] opacity-75'
+                            }`}
+                          >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                       
                       {/* Slot Time & ID */}
@@ -648,18 +660,20 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                       </div>
 
                     </div>
-                  </div>
-                );
-              })
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </React.Fragment>
+              ))
             )}
           </div>
 
-        </div>
-      )}
+        </div>}
 
       {/* VIEW 2: DEPARTMENT WORKLIST TABLE */}
-      {viewMode === 'engineer' && (
-        <div className="glass-card-elevated rounded-3xl p-6 sm:p-8">
+      {viewMode === 'engineer' && <div className="glass-card-elevated rounded-3xl p-6 sm:p-8">
           
           <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] mb-4">
             <div>
@@ -776,8 +790,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
             </table>
           </div>
 
-        </div>
-      )}
+        </div>}
 
     </div>
   );
