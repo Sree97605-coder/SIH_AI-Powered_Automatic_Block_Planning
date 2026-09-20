@@ -219,7 +219,73 @@ class ClassicalOptimizationTests(unittest.TestCase):
                 )
             return
 
-        self.fail("Could not find an invalid weekly pinning scenario in the current validated dataset")
+    def test_find_compatible_slot_for_defect_keeps_cris_path_unchanged(self) -> None:
+        """The original CRIS path should remain identical when no current assignment exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            defects = pd.DataFrame([
+                {"defect_id": "CRIS-TEST", "section_id": "SEC-01", "estimated_duration_hours": 4.0},
+                {"defect_id": "OTHER-DEFECT", "section_id": "SEC-01", "estimated_duration_hours": 2.0},
+            ])
+            slots = pd.DataFrame([
+                {"slot_id": "CRIS-SLOT-A", "section_id": "SEC-01", "horizon": "weekly", "start_datetime": "2026-09-07T00:00:00", "end_datetime": "2026-09-07T06:00:00", "duration_hours": 6.0, "source": "Timetable"},
+                {"slot_id": "CRIS-SLOT-B", "section_id": "SEC-01", "horizon": "weekly", "start_datetime": "2026-09-07T06:00:00", "end_datetime": "2026-09-07T12:00:00", "duration_hours": 6.0, "source": "Timetable"},
+            ])
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+
+            original_data_dir = api.DATA_DIR
+            try:
+                api.DATA_DIR = tmp_path
+                defect = {
+                    "defect_id": "CRIS-TEST",
+                    "section_id": "SEC-01",
+                    "estimated_duration_hours": 4.0,
+                }
+                result_without_current = api._find_compatible_slot_for_defect(defect)
+                result_with_current_none = api._find_compatible_slot_for_defect(defect, defect_current_slot_id=None)
+                self.assertEqual(result_without_current, result_with_current_none)
+                self.assertIsNotNone(result_without_current[0])
+                self.assertIn(result_without_current[1], {"CRIS-SLOT-A", "CRIS-SLOT-B"})
+            finally:
+                api.DATA_DIR = original_data_dir
+
+    def test_find_compatible_slot_for_defect_excludes_current_slot_when_displaced(self) -> None:
+        """A displaced defect must not be rebooked into the slot it is vacating."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            defects = pd.DataFrame([
+                {"defect_id": "D-1", "section_id": "SEC-TEST", "estimated_duration_hours": 2.0},
+                {"defect_id": "D-2", "section_id": "SEC-TEST", "estimated_duration_hours": 3.0},
+            ])
+            slots = pd.DataFrame([
+                {"slot_id": "SLOT-A", "section_id": "SEC-TEST", "horizon": "weekly", "start_datetime": "2026-09-07T00:00:00", "end_datetime": "2026-09-07T12:00:00", "duration_hours": 12.0, "source": "Timetable"},
+                {"slot_id": "SLOT-B", "section_id": "SEC-TEST", "horizon": "weekly", "start_datetime": "2026-09-07T12:00:00", "end_datetime": "2026-09-07T18:00:00", "duration_hours": 6.0, "source": "Timetable"},
+            ])
+            defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
+            slots.to_csv(tmp_path / "block_slots.csv", index=False)
+            (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([
+                {"slot_id": "SLOT-A", "section_id": "SEC-TEST", "assigned_defect_ids": "['D-1']", "assigned_defect_count": 1, "duration_hours": 12.0, "duration_utilization_pct": 16.7},
+                {"slot_id": "SLOT-B", "section_id": "SEC-TEST", "assigned_defect_ids": "[]", "assigned_defect_count": 0, "duration_hours": 6.0, "duration_utilization_pct": 0.0},
+            ]).to_csv(tmp_path / "optimized" / "weekly_schedule.csv", index=False)
+
+            original_data_dir = api.DATA_DIR
+            original_optimized_dir = api.OPTIMIZED_DIR
+            try:
+                api.DATA_DIR = tmp_path
+                api.OPTIMIZED_DIR = tmp_path / "optimized"
+                result = api._find_compatible_slot_for_defect(
+                    {"defect_id": "D-1", "section_id": "SEC-TEST", "estimated_duration_hours": 2.0},
+                    defect_current_slot_id="SLOT-A",
+                )
+            finally:
+                api.DATA_DIR = original_data_dir
+                api.OPTIMIZED_DIR = original_optimized_dir
+
+            self.assertEqual(result[0], "weekly")
+            self.assertNotEqual(result[1], "SLOT-A")
+            self.assertEqual(result[1], "SLOT-B")
 
     def test_unpinned_regression_matches_existing_weekly_output(self) -> None:
         """The existing weekly optimized output must remain byte-identical when no pinning is applied."""

@@ -284,12 +284,34 @@ def _write_system_event(
     conn.commit()
 
 
-def _find_compatible_slot_for_defect(normalized: dict[str, Any], horizons: list[str] | None = None) -> tuple[str | None, str | None]:
+def _find_compatible_slot_for_defect(
+    normalized: dict[str, Any],
+    horizons: list[str] | None = None,
+    *,
+    defect_current_slot_id: str | None = None,
+) -> tuple[str | None, str | None]:
+    defect_id = str(normalized.get("defect_id", "")).strip()
+    current_slot_id = str(defect_current_slot_id).strip() if defect_current_slot_id is not None else ""
+
     for horizon in horizons or ["weekly", "monthly"]:
         defects_df, slots_df, schedule_df = _load_live_state(horizon)
         if slots_df.empty:
             continue
-        slot_lookup, _ = _schedule_lookup(schedule_df)
+
+        slot_lookup, defect_slot_lookup = _schedule_lookup(schedule_df)
+        if current_slot_id and defect_id:
+            effective_slot_lookup = {str(slot): list(ids) for slot, ids in slot_lookup.items()}
+            current_ids = effective_slot_lookup.get(current_slot_id, [])
+            if current_ids:
+                current_ids = [str(item).strip() for item in current_ids if str(item).strip()]
+                effective_slot_lookup[current_slot_id] = [
+                    str(item).strip() for item in current_ids if str(item).strip() != defect_id
+                ]
+            else:
+                effective_slot_lookup[current_slot_id] = []
+        else:
+            effective_slot_lookup = slot_lookup
+
         best_slot_id: str | None = None
         best_excess = None
         required_hours = float(normalized.get("estimated_duration_hours", 0) or 0.0)
@@ -302,7 +324,9 @@ def _find_compatible_slot_for_defect(normalized: dict[str, Any], horizons: list[
             slot_id = str(slot_row.get("slot_id", "")).strip()
             if not slot_id:
                 continue
-            remaining_hours = _slot_remaining_hours(slot_id, slots_df, slot_lookup, defects_df)
+            if current_slot_id and slot_id == current_slot_id:
+                continue
+            remaining_hours = _slot_remaining_hours(slot_id, slots_df, effective_slot_lookup, defects_df)
             if remaining_hours < required_hours:
                 continue
             excess = remaining_hours - required_hours
