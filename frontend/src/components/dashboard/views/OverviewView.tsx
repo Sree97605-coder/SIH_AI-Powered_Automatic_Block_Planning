@@ -33,8 +33,12 @@ function buildSectionMovableSummaries(defects: Defect[]): SectionMovableSummary[
     fixed: 0,
   }));
   const summariesBySection = new Map(summaries.map((summary) => [summary.section.section_id, summary]));
+  const countedDefectIds = new Set<string>();
 
   defects.forEach((defect) => {
+    if (countedDefectIds.has(defect.defect_id)) return;
+    countedDefectIds.add(defect.defect_id);
+
     const summary = summariesBySection.get(defect.section_id);
     if (!summary) return;
 

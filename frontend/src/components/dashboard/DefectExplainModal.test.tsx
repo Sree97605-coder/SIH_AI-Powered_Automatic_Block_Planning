@@ -46,6 +46,7 @@ describe('OverviewView corridor lens', () => {
         defects={[
           { ...defect, defect_id: 'P1-TEST', section_id: 'SEC-01', urgency_band: 'P1 - Immediate' },
           { ...defect, defect_id: 'P2-TEST', section_id: 'SEC-01', urgency_band: 'P2 - Urgent' },
+          { ...defect, defect_id: 'P2-TEST', section_id: 'SEC-01', urgency_band: 'P2 - Urgent' },
         ]}
         onNavigateTab={() => undefined}
         onSelectDefect={() => undefined}
