@@ -12,6 +12,7 @@ dist/
 Thumbs.db
 .vscode/
 override_log.db
+cris_pending_defects.db
 users.db
 override_log.pre-c2-backup.db
 *.pre-c2-run-backup.csv
