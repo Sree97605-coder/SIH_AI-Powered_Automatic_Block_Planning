@@ -197,6 +197,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
           {activeTab === 'overview' && (
             <OverviewView
               horizon={horizon}
+              defects={visibleDefects}
               onNavigateTab={(tab) => {
                 setActiveTab(tab);
                 if (tab === 'weekly') setHorizon('weekly');

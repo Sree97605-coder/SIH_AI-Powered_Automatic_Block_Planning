@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ShieldCheck,
   Zap,
@@ -12,11 +12,42 @@ import {
   Info,
   PlusCircle,
 } from 'lucide-react';
-import { HorizonType, Defect, PerspectiveType, RoleType } from '../../../types';
+import { HorizonType, Defect, PerspectiveType, RoleType, BlockSectionInfo } from '../../../types';
 import { VERIFIED_BENCHMARKS, CORRIDOR_DATA, SYSTEM_META } from '../../../config/constants';
+import { deriveMovableState, MovableState } from '../../../utils/defectClassification';
+
+type MovableFilter = 'ALL' | MovableState;
+
+interface SectionMovableSummary {
+  section: BlockSectionInfo;
+  all: number;
+  movable: number;
+  fixed: number;
+}
+
+function buildSectionMovableSummaries(defects: Defect[]): SectionMovableSummary[] {
+  const summaries = CORRIDOR_DATA.block_sections.map((section) => ({
+    section,
+    all: 0,
+    movable: 0,
+    fixed: 0,
+  }));
+  const summariesBySection = new Map(summaries.map((summary) => [summary.section.section_id, summary]));
+
+  defects.forEach((defect) => {
+    const summary = summariesBySection.get(defect.section_id);
+    if (!summary) return;
+
+    summary.all += 1;
+    summary[deriveMovableState(defect).toLowerCase() as 'movable' | 'fixed'] += 1;
+  });
+
+  return summaries;
+}
 
 interface OverviewViewProps {
   horizon: HorizonType;
+  defects?: Defect[];
   onNavigateTab: (tab: 'weekly' | 'monthly' | 'unscheduled' | 'corridor') => void;
   onSelectDefect?: (defect: Defect) => void;
   selectedSectionFilter?: string;
@@ -29,6 +60,7 @@ interface OverviewViewProps {
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
   horizon,
+  defects = [],
   onNavigateTab,
   selectedSectionFilter = 'ALL',
   onSelectSectionFilter,
@@ -40,10 +72,31 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   const benchmarkRows = VERIFIED_BENCHMARKS[horizon];
   const manualFifo = benchmarkRows.find(r => r.plan === 'Manual (FIFO)') || benchmarkRows[0];
   const optimized = benchmarkRows.find(r => r.plan === 'Optimized') || benchmarkRows[2];
+  const [movableFilter, setMovableFilter] = useState<MovableFilter>('ALL');
+
+  const sectionSummaries = useMemo(() => buildSectionMovableSummaries(defects), [defects]);
+  const movableSummary = useMemo(() => sectionSummaries.reduce(
+    (totals, summary) => ({
+      all: totals.all + summary.all,
+      movable: totals.movable + summary.movable,
+      fixed: totals.fixed + summary.fixed,
+    }),
+    { all: 0, movable: 0, fixed: 0 },
+  ), [sectionSummaries]);
 
   const currentSection = selectedSectionFilter !== 'ALL'
     ? CORRIDOR_DATA.block_sections.find(s => s.section_id === selectedSectionFilter)
     : null;
+
+  const corridorStats = [
+    { label: 'All', value: movableSummary.all, active: movableFilter === 'ALL' },
+    { label: 'Movable', value: movableSummary.movable, active: movableFilter === 'Movable' },
+    { label: 'Fixed', value: movableSummary.fixed, active: movableFilter === 'Fixed' },
+  ];
+
+  const toggleButtonClass = (isActive: boolean) => isActive
+    ? 'bg-[var(--accent-amber)] text-[var(--text-inverse)] border border-[var(--accent-amber)] shadow-[var(--shadow-glow-amber)]'
+    : 'bg-[var(--bg-pill)] text-[var(--text-muted)] border border-[var(--border-subtle)]';
 
   return (
     <div className="space-y-8 pb-12">
@@ -244,6 +297,36 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
       </div>
 
+      <div className="glass-card-elevated rounded-3xl p-6 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[var(--border-subtle)]">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[var(--accent-amber)]" />
+            <h3 className="font-display font-bold text-base text-[var(--text-heading)]">Movable / Fixed Corridor Overview</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            {(['ALL', 'Movable', 'Fixed'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setMovableFilter(mode)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${toggleButtonClass(movableFilter === mode)}`}
+              >
+                {mode === 'ALL' ? 'All' : mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {corridorStats.map((stat) => (
+            <div key={stat.label} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-4">
+              <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-[var(--text-muted)]">{stat.label}</div>
+              <div className="mt-2 text-2xl font-mono font-bold text-[var(--text-heading)]">{stat.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* CORRIDOR SECTION FILTER */}
       <div className="glass-card-elevated rounded-3xl p-6">
         
@@ -271,8 +354,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
         {/* 5 Clickable Section Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-          {CORRIDOR_DATA.block_sections.map((sec) => {
+          {sectionSummaries.map(({ section: sec, all, movable, fixed }) => {
             const isSelected = selectedSectionFilter === sec.section_id;
+            const visibleCount = movableFilter === 'ALL' ? all : movableFilter === 'Movable' ? movable : fixed;
             return (
               <button
                 key={sec.section_id}
@@ -297,6 +381,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                 <div className="mt-2 text-[10px] font-mono text-[var(--text-muted)] flex justify-between">
                   <span>{sec.length_km} km</span>
                   <span>{sec.typical_daily_trains} trains/d</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-[var(--border-subtle)] pt-2 text-[10px] font-mono">
+                  <span className="text-[var(--text-muted)]">{movableFilter === 'ALL' ? 'Defects' : movableFilter}</span>
+                  <span className="font-bold text-[var(--accent-amber)]">{visibleCount}</span>
                 </div>
               </button>
             );

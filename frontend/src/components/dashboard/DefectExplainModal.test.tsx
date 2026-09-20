@@ -2,8 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { DefectExplainModal, buildOverridePreviewNarrative } from './DefectExplainModal';
 import { PlanScheduleView } from './views/PlanScheduleView';
+import { OverviewView } from './views/OverviewView';
 import { formatSlotWindow } from '../../utils/displayFormatting';
 import { invalidateLiveScheduleQueries } from './DashboardLayout';
+import { deriveMovableState } from '../../utils/defectClassification';
 import type { AuditLogEntry, Defect, OverridePreviewResponse } from '../../types';
 import '@testing-library/jest-dom/vitest';
 import { api } from '../../api/client';
@@ -26,6 +28,44 @@ const defect: Defect = {
 
 afterEach(() => {
   cleanup();
+});
+
+describe('deriveMovableState', () => {
+  it('treats P1 safety defects as fixed and lower urgency defects as movable', () => {
+    expect(deriveMovableState({ urgency_band: 'P1 - Immediate' } as Defect)).toBe('Fixed');
+    expect(deriveMovableState({ urgency_band: 'P2 - Urgent' } as Defect)).toBe('Movable');
+    expect(deriveMovableState({ urgency_band: 'P3 - Planned' } as Defect)).toBe('Movable');
+  });
+});
+
+describe('OverviewView corridor lens', () => {
+  it('shows live movable and fixed counts for each corridor section', () => {
+    render(
+      <OverviewView
+        horizon="weekly"
+        defects={[
+          { ...defect, defect_id: 'P1-TEST', section_id: 'SEC-01', urgency_band: 'P1 - Immediate' },
+          { ...defect, defect_id: 'P2-TEST', section_id: 'SEC-01', urgency_band: 'P2 - Urgent' },
+        ]}
+        onNavigateTab={() => undefined}
+        onSelectDefect={() => undefined}
+        selectedSectionFilter="ALL"
+        onSelectSectionFilter={() => undefined}
+        perspective="division"
+        onPerspectiveChange={() => undefined}
+        role="COA_ADMIN"
+        onSimulateCrisDefect={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /^All$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Movable$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Fixed$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /SEC-01.*Defects.*2/s })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Fixed$/ }));
+    expect(screen.getByRole('button', { name: /SEC-01.*Fixed.*1/s })).toBeInTheDocument();
+  });
 });
 
 describe('buildOverridePreviewNarrative', () => {
