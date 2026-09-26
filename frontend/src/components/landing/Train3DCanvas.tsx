@@ -20,7 +20,9 @@ export const Train3DCanvas: React.FC = () => {
       0.1,
       1000
     );
-    camera.position.set(12, 8, 16);
+    const cameraHome = new THREE.Vector3(14, 10, 21);
+    camera.position.copy(cameraHome);
+    camera.lookAt(0, 0, 0);
 
     // Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -31,7 +33,8 @@ export const Train3DCanvas: React.FC = () => {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
 
-    containerRef.current.appendChild(renderer.domElement);
+    renderer.domElement.style.display = 'block';
+    containerRef.current.replaceChildren(renderer.domElement);
 
     // 2. Lighting System (Adaptive to Theme)
     const ambientLight = new THREE.AmbientLight(isLight ? 0xffffff : 0x1a2634, isLight ? 2.0 : 1.2);
@@ -178,7 +181,9 @@ export const Train3DCanvas: React.FC = () => {
 
     // Locomotive Body (Glossy Streamlined Ceramic / Navy Carbon)
     const locoMat = new THREE.MeshPhysicalMaterial({
-      color: isLight ? 0x334155 : 0x0B1420,
+      color: isLight ? 0x334155 : 0x577a91,
+      emissive: isLight ? 0x000000 : 0x1c3c50,
+      emissiveIntensity: isLight ? 0 : 0.9,
       metalness: 0.3,
       roughness: 0.1,
       clearcoat: 1.0,
@@ -257,7 +262,6 @@ export const Train3DCanvas: React.FC = () => {
     let trainProgress = 0.2;
     const timer = new THREE.Timer();
     timer.connect(document);
-    let frameId: number;
 
     // Mouse Parallax Interaction
     let mouseX = 0;
@@ -272,7 +276,6 @@ export const Train3DCanvas: React.FC = () => {
     window.addEventListener('mousemove', handleMouseMove);
 
     const animate = (timestamp: number) => {
-      frameId = requestAnimationFrame(animate);
       timer.update(timestamp);
       const delta = timer.getDelta();
 
@@ -289,30 +292,35 @@ export const Train3DCanvas: React.FC = () => {
       trainGroup.rotateZ(Math.sin(trainProgress * Math.PI * 4) * 0.08);
 
       // Mouse camera parallax
-      camera.position.x += (12 + mouseX * 2.5 - camera.position.x) * 0.04;
-      camera.position.y += (8 + mouseY * 1.5 - camera.position.y) * 0.04;
-      camera.lookAt(0, 1, 0);
+      camera.position.x += (cameraHome.x + mouseX * 2.5 - camera.position.x) * 0.04;
+      camera.position.y += (cameraHome.y + mouseY * 1.5 - camera.position.y) * 0.04;
+      camera.position.z += (cameraHome.z - camera.position.z) * 0.04;
+      camera.lookAt(0, 0, 0);
 
       renderer.render(scene, camera);
     };
 
-    frameId = requestAnimationFrame(animate);
-
-    // 7. Resize Handler
     const handleResize = () => {
       if (!containerRef.current) return;
       const width = containerRef.current.clientWidth;
       const height = containerRef.current.clientHeight;
+      if (!width || !height) return;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+      renderer.render(scene, camera);
     };
 
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(containerRef.current);
     window.addEventListener('resize', handleResize);
+    handleResize();
+    renderer.setAnimationLoop(animate);
 
     return () => {
-      cancelAnimationFrame(frameId);
+      renderer.setAnimationLoop(null);
       timer.dispose();
+      resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('resize', handleResize);
       renderer.dispose();

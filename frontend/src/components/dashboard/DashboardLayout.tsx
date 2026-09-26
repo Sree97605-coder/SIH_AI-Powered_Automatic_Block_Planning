@@ -22,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 import { VERIFIED_BENCHMARKS } from '../../config/constants';
 import { useAuth } from '../../context/AuthContext';
+import { pendingDefectToDisplayDefect } from '../../utils/newDefects';
 
 interface DashboardLayoutProps {
   onBackToLanding: () => void;
@@ -42,6 +43,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
   const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null);
   const [planSearchResetKey, setPlanSearchResetKey] = useState(0);
+  const [crisNotice, setCrisNotice] = useState<{ defectId: string; status: string; message: string } | null>(null);
   const role = user?.role ?? 'DIVISION_HEAD';
   const engineerDepartment: DepartmentType = user?.department === 'TMS'
     ? 'Engineering'
@@ -81,14 +83,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
       ]);
       setPlanSearchResetKey((current) => current + 1);
       if (result.status === 'SCHEDULED' && result.slot_id && result.horizon) {
-        alert(`New defect ${result.defect_id} scheduled immediately into slot ${result.slot_id} (${result.horizon}) — no full re-optimization needed.`);
+        setCrisNotice({
+          defectId: result.defect_id,
+          status: `Scheduled in ${result.horizon}`,
+          message: `Assigned to ${result.slot_id}.`,
+        });
       } else if (result.duplicate) {
-        alert(`Duplicate CRIS defect queued: ${result.defect_id}`);
+        setCrisNotice({ defectId: result.defect_id, status: 'Already pending', message: 'This defect is waiting for re-optimization.' });
       } else {
-        alert(`Queued ${result.defect_id} for re-optimization.`);
+        setCrisNotice({ defectId: result.defect_id, status: 'Pending re-optimization', message: 'It is visible in the worklist and unscheduled queue; no horizon slot is assigned yet.' });
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Unable to simulate CRIS defect.');
+      setCrisNotice({ defectId: '', status: 'Creation failed', message: error instanceof Error ? error.message : 'Unable to simulate CRIS defect.' });
     }
   };
 
@@ -148,6 +154,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
   const visiblePendingDefects = role === 'DEPT_ENGINEER'
     ? pendingDefects.filter((item) => matchesDepartment(String(item.payload?.department ?? item.source_system), item.defect_id))
     : pendingDefects;
+  const visiblePendingAsDefects = visiblePendingDefects.map(pendingDefectToDisplayDefect);
+  const visibleDashboardDefects = [...visibleDefects, ...visiblePendingAsDefects]
+    .filter((defect, index, all) => all.findIndex((candidate) => candidate.defect_id === defect.defect_id) === index);
   const visibleMergedSlots = role === 'DEPT_ENGINEER'
     ? mergedSlots
         .map((slot) => {
@@ -174,6 +183,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
       <Sidebar
         activeTab={activeTab}
         role={role}
+        pendingCount={visiblePendingDefects.length}
         onTabChange={(tab) => {
           setActiveTab(tab);
           if (tab === 'weekly') setHorizon('weekly');
@@ -197,7 +207,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
           {activeTab === 'overview' && (
             <OverviewView
               horizon={horizon}
-              defects={visibleDefects}
               onNavigateTab={(tab) => {
                 setActiveTab(tab);
                 if (tab === 'weekly') setHorizon('weekly');
@@ -209,6 +218,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
               perspective={perspective}
               onPerspectiveChange={handlePerspectiveChange}
               role={role}
+              defects={visibleDashboardDefects}
+              pendingDefectIds={visiblePendingDefects.map((item) => item.defect_id)}
+              crisNotice={crisNotice}
               onSimulateCrisDefect={() => { void handleSimulateCrisDefect(); }}
             />
           )}
@@ -217,7 +229,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
             <PlanScheduleView
               horizon={activeTab === 'weekly' ? 'weekly' : 'monthly'}
               mergedSlots={visibleMergedSlots}
-              defects={visibleDefects}
+              defects={visibleDashboardDefects}
               isLoading={isLoadingSlots || isLoadingDefects}
               onSelectDefect={(def) => setSelectedDefect(def)}
               selectedSectionFilter={selectedSectionFilter}
@@ -237,6 +249,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ onBackToLandin
             <UnscheduledView
               horizon={horizon}
               classifications={visibleClassifications}
+              pendingDefects={visiblePendingAsDefects}
               isLoading={isLoadingClassifications}
               onSelectDefect={(def) => setSelectedDefect(def)}
             />

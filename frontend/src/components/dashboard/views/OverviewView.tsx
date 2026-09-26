@@ -15,6 +15,7 @@ import {
 import { HorizonType, Defect, PerspectiveType, RoleType, BlockSectionInfo } from '../../../types';
 import { VERIFIED_BENCHMARKS, CORRIDOR_DATA, SYSTEM_META } from '../../../config/constants';
 import { deriveMovableState, MovableState } from '../../../utils/defectClassification';
+import { formatAddedAt, isNewDefect } from '../../../utils/newDefects';
 
 type MovableFilter = 'ALL' | MovableState;
 
@@ -23,6 +24,7 @@ interface SectionMovableSummary {
   all: number;
   movable: number;
   fixed: number;
+  pending: number;
 }
 
 function buildSectionMovableSummaries(defects: Defect[]): SectionMovableSummary[] {
@@ -31,6 +33,7 @@ function buildSectionMovableSummaries(defects: Defect[]): SectionMovableSummary[
     all: 0,
     movable: 0,
     fixed: 0,
+    pending: 0,
   }));
   const summariesBySection = new Map(summaries.map((summary) => [summary.section.section_id, summary]));
   const countedDefectIds = new Set<string>();
@@ -43,6 +46,10 @@ function buildSectionMovableSummaries(defects: Defect[]): SectionMovableSummary[
     if (!summary) return;
 
     summary.all += 1;
+    if (defect.is_new && (!defect.urgency_band || defect.urgency_band.includes('Pending'))) {
+      summary.pending += 1;
+      return;
+    }
     summary[deriveMovableState(defect).toLowerCase() as 'movable' | 'fixed'] += 1;
   });
 
@@ -60,6 +67,8 @@ interface OverviewViewProps {
   onPerspectiveChange?: (p: PerspectiveType) => void;
   role?: RoleType;
   onSimulateCrisDefect?: () => void;
+  crisNotice?: { defectId: string; status: string; message: string } | null;
+  pendingDefectIds?: string[];
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
@@ -72,11 +81,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onPerspectiveChange,
   role = 'DIVISION_HEAD',
   onSimulateCrisDefect,
+  crisNotice,
+  pendingDefectIds = [],
 }) => {
   const benchmarkRows = VERIFIED_BENCHMARKS[horizon];
   const manualFifo = benchmarkRows.find(r => r.plan === 'Manual (FIFO)') || benchmarkRows[0];
   const optimized = benchmarkRows.find(r => r.plan === 'Optimized') || benchmarkRows[2];
   const [movableFilter, setMovableFilter] = useState<MovableFilter>('ALL');
+  const pendingIds = new Set(pendingDefectIds);
 
   const sectionSummaries = useMemo(() => buildSectionMovableSummaries(defects), [defects]);
   const movableSummary = useMemo(() => sectionSummaries.reduce(
@@ -84,8 +96,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
       all: totals.all + summary.all,
       movable: totals.movable + summary.movable,
       fixed: totals.fixed + summary.fixed,
+      pending: totals.pending + summary.pending,
     }),
-    { all: 0, movable: 0, fixed: 0 },
+    { all: 0, movable: 0, fixed: 0, pending: 0 },
   ), [sectionSummaries]);
 
   const currentSection = selectedSectionFilter !== 'ALL'
@@ -96,6 +109,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
     { label: 'All', value: movableSummary.all, active: movableFilter === 'ALL' },
     { label: 'Movable', value: movableSummary.movable, active: movableFilter === 'Movable' },
     { label: 'Fixed', value: movableSummary.fixed, active: movableFilter === 'Fixed' },
+    { label: 'Pending', value: movableSummary.pending, active: false },
   ];
 
   const toggleButtonClass = (isActive: boolean) => isActive
@@ -149,6 +163,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               <PlusCircle className="w-3.5 h-3.5" />
               Simulate CRIS Defect
             </button>
+          </div>
+        </div>
+      )}
+
+      {crisNotice && (
+        <div role="status" className={`glass-card rounded-xl px-4 py-3 border ${crisNotice.status === 'Creation failed' ? 'border-[var(--accent-red-border)] bg-[var(--accent-red-bg)] text-[var(--accent-red)]' : 'border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] text-[var(--text-heading)]'}`}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono">
+            {crisNotice.defectId && <strong className="text-[var(--accent-amber)]">{crisNotice.defectId}</strong>}
+            <span className="font-bold">{crisNotice.status}</span>
+            <span>{crisNotice.message}</span>
           </div>
         </div>
       )}
@@ -321,7 +345,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {corridorStats.map((stat) => (
             <div key={stat.label} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] p-4">
               <div className="text-[10px] font-mono uppercase tracking-[0.12em] text-[var(--text-muted)]">{stat.label}</div>
@@ -361,6 +385,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           {sectionSummaries.map(({ section: sec, all, movable, fixed }) => {
             const isSelected = selectedSectionFilter === sec.section_id;
             const visibleCount = movableFilter === 'ALL' ? all : movableFilter === 'Movable' ? movable : fixed;
+            const newSectionDefects = defects.filter((item) => item.section_id === sec.section_id && isNewDefect(item));
             return (
               <button
                 key={sec.section_id}
@@ -390,6 +415,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   <span className="text-[var(--text-muted)]">{movableFilter === 'ALL' ? 'Defects' : movableFilter}</span>
                   <span className="font-bold text-[var(--accent-amber)]">{visibleCount}</span>
                 </div>
+                {newSectionDefects.map((newDefect) => (
+                  <span key={newDefect.defect_id} className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-mono text-[var(--text-muted)]" title={newDefect.reported_at ? `Reported ${formatAddedAt(newDefect.reported_at)}` : 'Recently created'}>
+                    <span className="rounded-full border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-1.5 py-0.5 font-bold text-[var(--accent-green)]">NEW</span>
+                    <span>{newDefect.defect_id}</span>
+                    {pendingIds.has(newDefect.defect_id) && <span>Pending re-optimization</span>}
+                    {formatAddedAt(newDefect.reported_at) && <span>Added {formatAddedAt(newDefect.reported_at)}</span>}
+                  </span>
+                ))}
               </button>
             );
           })}

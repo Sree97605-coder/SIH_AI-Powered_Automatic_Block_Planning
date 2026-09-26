@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DefectExplainModal, buildOverridePreviewNarrative } from './DefectExplainModal';
 import { PlanScheduleView } from './views/PlanScheduleView';
 import { OverviewView } from './views/OverviewView';
@@ -8,8 +8,10 @@ import { invalidateLiveScheduleQueries } from './DashboardLayout';
 import { deriveMovableState } from '../../utils/defectClassification';
 import type { AuditLogEntry, Defect, OverridePreviewResponse } from '../../types';
 import '@testing-library/jest-dom/vitest';
-import { api } from '../../api/client';
+import { ApiError, api } from '../../api/client';
 import { render as renderPlanScheduleView } from '@testing-library/react';
+import { pendingDefectToDisplayDefect } from '../../utils/newDefects';
+import { UnscheduledView } from './views/UnscheduledView';
 
 const defect: Defect = {
   defect_id: 'TMS-001',
@@ -28,6 +30,7 @@ const defect: Defect = {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
 });
 
 describe('deriveMovableState', () => {
@@ -35,6 +38,91 @@ describe('deriveMovableState', () => {
     expect(deriveMovableState({ urgency_band: 'P1 - Immediate' } as Defect)).toBe('Fixed');
     expect(deriveMovableState({ urgency_band: 'P2 - Urgent' } as Defect)).toBe('Movable');
     expect(deriveMovableState({ urgency_band: 'P3 - Planned' } as Defect)).toBe('Movable');
+  });
+});
+
+describe('pending CRIS defect visibility', () => {
+  const pendingRecord = {
+    defect_id: 'TMS-CRIS-1790417047315',
+    status: 'PENDING_REOPTIMIZATION',
+    source_system: 'TMS',
+    payload: {
+      department: 'Engineering',
+      section_id: 'SEC-01',
+      section_name: 'Kanpur Central – Bindki Road',
+      defect_type: 'Rail fracture (suspect)',
+      severity: 'High',
+      estimated_duration_hours: 4,
+      description: 'CRIS simulated defect queued for re-optimization.',
+      reported_at: '2026-09-26T10:04:07.387817+00:00',
+    },
+  };
+
+  it('maps a pending record with its backend timestamp and New marker', () => {
+    const mapped = pendingDefectToDisplayDefect(pendingRecord);
+    expect(mapped.defect_id).toBe(pendingRecord.defect_id);
+    expect(mapped.reported_at).toBe(pendingRecord.payload.reported_at);
+    expect(mapped.is_new).toBe(true);
+    expect(mapped.section_id).toBe('SEC-01');
+    expect(mapped.estimated_duration_hours).toBe(4);
+  });
+
+  it('shows a queued defect in corridor counts as Movable without assigning it to a slot', () => {
+    render(
+      <OverviewView
+        horizon="monthly"
+        defects={[pendingDefectToDisplayDefect(pendingRecord)]}
+        pendingDefectIds={[pendingRecord.defect_id]}
+        onNavigateTab={() => undefined}
+        onSelectDefect={() => undefined}
+        role="COA_ADMIN"
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /SEC-01.*Defects.*1/s })).toBeInTheDocument();
+    expect(screen.getByText(pendingRecord.defect_id)).toBeInTheDocument();
+    expect(screen.getByText('Pending re-optimization')).toBeInTheDocument();
+    expect(screen.getByText(/Added/)).toBeInTheDocument();
+  });
+
+  it('finds the pending ID in weekly and monthly worklists and shows New plus timestamp', async () => {
+    const pending = pendingDefectToDisplayDefect(pendingRecord);
+    for (const horizon of ['weekly', 'monthly'] as const) {
+      cleanup();
+      render(
+        <PlanScheduleView
+          horizon={horizon}
+          mergedSlots={[]}
+          defects={[]}
+          pendingDefects={[pendingRecord]}
+          isLoading={false}
+          onSelectDefect={() => undefined}
+          initialViewMode="engineer"
+          searchResetKey={horizon === 'weekly' ? 1 : 2}
+        />,
+      );
+      fireEvent.change(screen.getByPlaceholderText(/Search slot ID, defect ID/i), { target: { value: pending.defect_id } });
+      expect(await screen.findByText(pending.defect_id)).toBeInTheDocument();
+      expect(screen.getByText(/NEW · Added/)).toBeInTheDocument();
+      expect(screen.getByText('Unscheduled / Pending Re-optimization')).toBeInTheDocument();
+    }
+  });
+
+  it('shows a pending defect in Unscheduled Work with its New tag and timestamp', () => {
+    const pending = pendingDefectToDisplayDefect(pendingRecord);
+    render(
+      <UnscheduledView
+        horizon="monthly"
+        classifications={[]}
+        pendingDefects={[pending]}
+        isLoading={false}
+        onSelectDefect={() => undefined}
+      />,
+    );
+    expect(screen.getByRole('region', { name: /Pending re-optimization/i })).toBeInTheDocument();
+    expect(screen.getByText(pending.defect_id)).toBeInTheDocument();
+    expect(screen.getByText(/Added/)).toBeInTheDocument();
+    expect(screen.getByText('1 NEW')).toBeInTheDocument();
   });
 });
 
@@ -132,6 +220,241 @@ describe('DefectExplainModal', () => {
 });
 
 describe('DefectExplainModal visibility and preview formatting', () => {
+  it('splits candidate boxes into chronologically sorted Prepone and Postpone groups', async () => {
+    const safeProbe: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 10,
+      required_hours: 4,
+      newly_deferred: [],
+      newly_cleared: [],
+      priority_alert: false,
+      p1_displacement: false,
+      reason_category_valid_for_displacement: true,
+      metrics_before: {},
+    };
+    vi.spyOn(api, 'previewOverride').mockResolvedValue(safeProbe);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{
+          slot_id: 'CURRENT', section_id: 'SEC-01', section_name: 'Section 1',
+          start_datetime: '2025-09-08T04:00:00', duration_hours: 4,
+          slot_source: 'Timetable', assigned_defect_ids: ['TMS-001'],
+          assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block',
+        }]}
+        slots={[
+          { slot_id: 'POSTPONE-LATE', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-10T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'PREPONE-LATE', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-07T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'CURRENT', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-08T04:00:00', duration_hours: 4, slot_source: 'Timetable' },
+          { slot_id: 'POSTPONE-EARLY', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-09T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'PREPONE-EARLY', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-06T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+        ]}
+      />,
+    );
+
+    const candidateButtons = await screen.findAllByRole('button', { name: /Candidate slot/ });
+    expect(candidateButtons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      expect.stringContaining('PREPONE-EARLY'),
+      expect.stringContaining('PREPONE-LATE'),
+      expect.stringContaining('POSTPONE-EARLY'),
+      expect.stringContaining('POSTPONE-LATE'),
+    ]);
+  });
+
+  it('shows each of three candidates\' own feasibility and displacement outcome, including exact capacity numbers', async () => {
+    const safeProbe: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 10,
+      required_hours: 4,
+      newly_deferred: [],
+      newly_cleared: [],
+      priority_alert: false,
+      p1_displacement: false,
+      reason_category_valid_for_displacement: true,
+      metrics_before: {},
+    };
+    const candidateAResult: OverridePreviewResponse = {
+      ...safeProbe,
+      available_hours: 8,
+      newly_deferred: ['P2-DISPLACED-A'],
+      priority_alert: true,
+    };
+    const candidateBResult: OverridePreviewResponse = {
+      ...safeProbe,
+      feasible: false,
+      available_hours: 2,
+      reason: 'GENERIC_CAPACITY_FAILURE',
+    };
+    const candidateCResult: OverridePreviewResponse = {
+      ...safeProbe,
+      available_hours: 9,
+      newly_deferred: ['P3-DISPLACED-C'],
+    };
+    vi.spyOn(api, 'previewOverride')
+      .mockResolvedValueOnce(safeProbe)
+      .mockResolvedValueOnce(safeProbe)
+      .mockResolvedValueOnce(safeProbe)
+      .mockResolvedValueOnce(candidateAResult)
+      .mockResolvedValueOnce(candidateBResult)
+      .mockResolvedValueOnce(candidateCResult);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{
+          slot_id: 'CURRENT', section_id: 'SEC-01', section_name: 'Section 1',
+          start_datetime: '2025-09-08T04:00:00', duration_hours: 4,
+          slot_source: 'Timetable', assigned_defect_ids: ['TMS-001'],
+          assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block',
+        }]}
+        slots={[
+          { slot_id: 'CANDIDATE-A', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-07T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'CURRENT', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-08T04:00:00', duration_hours: 4, slot_source: 'Timetable' },
+          { slot_id: 'CANDIDATE-B', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-09T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'CANDIDATE-C', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-10T04:00:00', duration_hours: 12, slot_source: 'Timetable' },
+        ]}
+      />,
+    );
+
+    const candidateA = await screen.findByRole('button', { name: /Candidate slot CANDIDATE-A/ });
+    const candidateB = screen.getByRole('button', { name: /Candidate slot CANDIDATE-B/ });
+    const candidateC = screen.getByRole('button', { name: /Candidate slot CANDIDATE-C/ });
+    await waitFor(() => expect(candidateA).toHaveAttribute('aria-disabled', 'false'));
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'prioritization_mistake' } });
+
+    fireEvent.click(candidateA);
+    expect(await screen.findByText('P2-DISPLACED-A')).toBeInTheDocument();
+    expect(screen.getByText('8')).toBeInTheDocument();
+
+    fireEvent.click(candidateB);
+    expect(await screen.findByText('Combined duration 8h exceeds slot capacity 6h')).toBeInTheDocument();
+    expect(screen.getByText('Blocked')).toBeInTheDocument();
+    expect(screen.queryByText('P2-DISPLACED-A')).not.toBeInTheDocument();
+
+    fireEvent.click(candidateC);
+    expect(await screen.findByText('P3-DISPLACED-C')).toBeInTheDocument();
+    expect(screen.getByText('Feasible')).toBeInTheDocument();
+    expect(screen.queryByText('Combined duration 8h exceeds slot capacity 6h')).not.toBeInTheDocument();
+  });
+
+  it('replaces candidate A preview details with candidate B details on reselection', async () => {
+    const safeProbe: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 10,
+      required_hours: 4,
+      newly_deferred: [],
+      newly_cleared: [],
+      priority_alert: false,
+      p1_displacement: false,
+      reason_category_valid_for_displacement: true,
+      metrics_before: {},
+    };
+    const resultA: OverridePreviewResponse = {
+      ...safeProbe,
+      feasible: false,
+      available_hours: 2,
+      reason: 'CANDIDATE_A_BLOCKED',
+    };
+    const resultB: OverridePreviewResponse = {
+      ...safeProbe,
+      feasible: true,
+      available_hours: 9,
+      newly_deferred: ['P2-DISPLACED-B'],
+      priority_alert: true,
+    };
+    const previewOverride = vi.spyOn(api, 'previewOverride')
+      .mockResolvedValueOnce(safeProbe)
+      .mockResolvedValueOnce(safeProbe)
+      .mockResolvedValueOnce(resultA)
+      .mockResolvedValueOnce(resultB);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{
+          slot_id: 'CURRENT', section_id: 'SEC-01', section_name: 'Section 1',
+          start_datetime: '2025-09-08T04:00:00', duration_hours: 4,
+          slot_source: 'Timetable', assigned_defect_ids: ['TMS-001'],
+          assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block',
+        }]}
+        slots={[
+          { slot_id: 'CANDIDATE-A', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-07T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'CURRENT', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-08T04:00:00', duration_hours: 4, slot_source: 'Timetable' },
+          { slot_id: 'CANDIDATE-B', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-09T04:00:00', duration_hours: 12, slot_source: 'Timetable' },
+        ]}
+      />,
+    );
+
+    const candidateA = await screen.findByRole('button', { name: /Candidate slot CANDIDATE-A/ });
+    const candidateB = screen.getByRole('button', { name: /Candidate slot CANDIDATE-B/ });
+    await waitFor(() => expect(candidateA).toHaveAttribute('aria-disabled', 'false'));
+    fireEvent.change(screen.getByLabelText(/reason category/i), { target: { value: 'prioritization_mistake' } });
+
+    fireEvent.click(candidateA);
+    expect(await screen.findByText('Combined duration 8h exceeds slot capacity 6h')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+
+    fireEvent.click(candidateB);
+    expect(await screen.findByText('P2-DISPLACED-B')).toBeInTheDocument();
+    expect(screen.queryByText('Combined duration 8h exceeds slot capacity 6h')).not.toBeInTheDocument();
+    expect(screen.getByText('Feasible')).toBeInTheDocument();
+    expect(previewOverride).toHaveBeenNthCalledWith(3, expect.objectContaining({ target_slot_id: 'CANDIDATE-A' }));
+    expect(previewOverride).toHaveBeenNthCalledWith(4, expect.objectContaining({ target_slot_id: 'CANDIDATE-B' }));
+  });
+
+  it('greys out P1-displacing candidates and shows the emergency-flow message without previewing them on click', async () => {
+    const safeProbe: OverridePreviewResponse = {
+      feasible: true,
+      available_hours: 10,
+      required_hours: 4,
+      newly_deferred: [],
+      newly_cleared: [],
+      priority_alert: false,
+      p1_displacement: false,
+      reason_category_valid_for_displacement: true,
+      metrics_before: {},
+    };
+    const previewOverride = vi.spyOn(api, 'previewOverride')
+      .mockRejectedValueOnce(new ApiError('P1 displacement blocked', 403, {
+        reason: 'p1_displacement_not_authorized',
+        message: 'P1 displacement requires an emergency reason.',
+        p1_displacement: true,
+        newly_deferred: ['P1-FIXED-01'],
+        reason_category_valid_for_displacement: false,
+      }))
+      .mockResolvedValueOnce(safeProbe);
+
+    render(
+      <DefectExplainModal
+        defect={defect}
+        onClose={() => undefined}
+        schedule={[{
+          slot_id: 'CURRENT', section_id: 'SEC-01', section_name: 'Section 1',
+          start_datetime: '2025-09-08T04:00:00', duration_hours: 4,
+          slot_source: 'Timetable', assigned_defect_ids: ['TMS-001'],
+          assigned_defect_count: 1, is_bundled: false, bundle_type: 'Single Task Block',
+        }]}
+        slots={[
+          { slot_id: 'CANDIDATE-P1', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-07T04:00:00', duration_hours: 6, slot_source: 'Timetable' },
+          { slot_id: 'CURRENT', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-08T04:00:00', duration_hours: 4, slot_source: 'Timetable' },
+          { slot_id: 'CANDIDATE-SAFE', section_id: 'SEC-01', horizon: 'weekly', start_datetime: '2025-09-09T04:00:00', duration_hours: 12, slot_source: 'Timetable' },
+        ]}
+      />,
+    );
+
+    const p1Candidate = await screen.findByRole('button', { name: /Candidate slot CANDIDATE-P1/ });
+    await waitFor(() => expect(p1Candidate).toHaveAttribute('aria-disabled', 'true'));
+    expect(p1Candidate).toHaveClass('opacity-60');
+    fireEvent.click(p1Candidate);
+    expect(screen.getByText('This would displace a P1 safety-critical defect — use the emergency override flow instead.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm override/i })).toBeDisabled();
+    expect(previewOverride).toHaveBeenCalledTimes(2);
+  });
+
   it('renders the same from-to window in both the worklist and modal preview for the chosen slot', async () => {
     const preview: OverridePreviewResponse = {
       feasible: true,

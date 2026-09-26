@@ -19,6 +19,7 @@ interface SidebarProps {
   onTabChange: (tab: DashboardTab) => void;
   onBackToLanding: () => void;
   role: RoleType;
+  pendingCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange,
   onBackToLanding,
   role,
+  pendingCount = 0,
 }) => {
   const navItems = [
     {
@@ -50,7 +52,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'unscheduled' as DashboardTab,
       label: 'Unscheduled Work',
       icon: AlertCircle,
-      badge: '9 Contention',
+      badge: pendingCount
+        ? `${9 + pendingCount} Total · 9 Contention · ${pendingCount} Pending`
+        : '9 Contention',
     },
     {
       id: 'corridor' as DashboardTab,

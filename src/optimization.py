@@ -203,6 +203,7 @@ class BlockOptimizer:
         min_p2_clearance_pct: float = 0.60,
         pinned_assignments: dict[str, str] | None = None,
         relax_p1_requirement: bool = False,
+        section_id: str | None = None,
     ) -> tuple[list[ScheduledSlot], pd.DataFrame, dict[str, Any]]:
         """Formulate and solve MILP optimization for a given planning horizon.
 
@@ -223,6 +224,16 @@ class BlockOptimizer:
         """
         if self.defects_df.empty or self.slots_df.empty:
             self.load_data()
+
+        if section_id is not None:
+            self.defects_df = self.defects_df[
+                self.defects_df["section_id"].astype(str).str.strip() == str(section_id).strip()
+            ].copy()
+            self.slots_df = self.slots_df[
+                self.slots_df["section_id"].astype(str).str.strip() == str(section_id).strip()
+            ].copy()
+            if self.defects_df.empty or self.slots_df.empty:
+                raise ValueError(f"No defects or slots available for section {section_id!r}.")
 
         start_time = time.time()
 
@@ -714,11 +725,14 @@ def optimize_schedule(
     horizon: str = "weekly",
     pinned_assignments: dict[str, str] | None = None,
     relax_p1_requirement: bool = False,
+    section_id: str | None = None,
 ) -> tuple[list[ScheduledSlot], pd.DataFrame, dict[str, Any]]:
     """Run the existing optimization for a single horizon with optional pinned assignments.
 
     relax_p1_requirement: pass-through to build_and_solve_milp.  Must remain
-    False for all callers except the emergency override preview path in api.py.
+    False for normal planning; override preview/confirm explicitly set it True
+    so policy checks can assess displacement while physical limits stay hard.
+    section_id: optionally restrict both defect and slot inputs to one section.
     """
     optimizer = BlockOptimizer(data_dir=data_dir)
     optimizer.load_data()
@@ -726,6 +740,7 @@ def optimize_schedule(
         horizon=horizon,
         pinned_assignments=pinned_assignments,
         relax_p1_requirement=relax_p1_requirement,
+        section_id=section_id,
     )
 
 

@@ -77,3 +77,13 @@ cd ..
 python -m uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 Open **`http://localhost:8000/`** in your browser to view the live production website!
+
+### Authentication health check
+
+With the API running from the repository root, run this before a demo or deployment:
+
+```powershell
+python check_login_health.py
+```
+
+It scans for duplicate `users.db` files, verifies the API's configured database path, checks the five canonical demo password hashes, and performs real `/auth/login` requests. It exits non-zero and identifies the failed account when the credential state or API is unhealthy.

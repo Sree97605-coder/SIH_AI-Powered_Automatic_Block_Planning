@@ -3,14 +3,16 @@ import { MapPin } from 'lucide-react';
 import { CORRIDOR_DATA, SYSTEM_META } from '../../../config/constants';
 import { MergedSlotDisplay } from '../../../api/idleCapacity';
 import { Defect } from '../../../types';
+import { formatAddedAt, isNewDefect } from '../../../utils/newDefects';
 
 interface CorridorMapViewProps {
   mergedSlots: MergedSlotDisplay[];
   defects: Defect[];
 }
 
-export const CorridorMapView: React.FC<CorridorMapViewProps> = ({ defects }) => {
+export const CorridorMapView: React.FC<CorridorMapViewProps> = ({ defects, mergedSlots }) => {
   const [selectedSecId, setSelectedSecId] = useState<string>('SEC-01');
+  const scheduledDefectIds = new Set(mergedSlots.flatMap((slot) => slot.assigned_defect_ids));
 
   const selectedSec = CORRIDOR_DATA.block_sections.find(s => s.section_id === selectedSecId) || CORRIDOR_DATA.block_sections[0];
   const secDefects = defects.filter(d => d.section_id === selectedSecId);
@@ -132,11 +134,14 @@ export const CorridorMapView: React.FC<CorridorMapViewProps> = ({ defects }) => 
                 >
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-[var(--accent-amber)]">{def.defect_id}</span>
+                    {isNewDefect(def) && <span title={def.reported_at ? `Reported ${formatAddedAt(def.reported_at)}` : 'Recently created'} className="rounded-full border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--accent-green)]">NEW</span>}
                     <span className="px-1.5 py-0.2 rounded text-[10px] bg-[var(--bg-pill)] text-[var(--text-heading)]">
                       {def.department}
                     </span>
                     <span className="text-[var(--text-heading)] truncate max-w-[180px]">{def.defect_type}</span>
+                    {isNewDefect(def) && formatAddedAt(def.reported_at) && <span className="text-[9px] text-[var(--text-muted)]">Added {formatAddedAt(def.reported_at)}</span>}
                   </div>
+                  {isNewDefect(def) && !scheduledDefectIds.has(def.defect_id) && <span className="ml-2 shrink-0 rounded-full border border-[var(--accent-amber-border)] bg-[var(--accent-amber-bg)] px-1.5 py-0.5 text-[9px] font-mono text-[var(--accent-amber)]">PENDING</span>}
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     def.urgency_band.includes('P1') ? 'text-[var(--accent-red)] bg-[var(--accent-red-bg)] border border-[var(--accent-red-border)]' : 'text-[var(--accent-amber)] bg-[var(--accent-amber-bg)] border border-[var(--accent-amber-border)]'
                   }`}>

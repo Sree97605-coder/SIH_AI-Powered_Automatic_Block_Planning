@@ -16,6 +16,7 @@ import { HorizonType, Defect, DepartmentType, AuditLogEntry, RoleType, Unschedul
 import { MergedSlotDisplay } from '../../../api/idleCapacity';
 import { CORRIDOR_DATA, DEPARTMENTS_INFO, SYSTEM_META } from '../../../config/constants';
 import { canonicalDepartment, departmentMatches, formatSectionLabel, formatSlotWindow } from '../../../utils/displayFormatting';
+import { formatAddedAt, isNewDefect, pendingDefectToDisplayDefect } from '../../../utils/newDefects';
 
 const defectMatchesDepartment = (defect: Defect, department: DepartmentType): boolean => {
   if (department === 'ALL') return true;
@@ -116,23 +117,12 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
     return true;
   });
 
-  const pendingAsUnscheduled = pendingDefects.map((item): UnscheduledDefect => ({
-    defect_id: item.defect_id,
-    section_id: String(item.payload?.section_id ?? 'Unknown section'),
-    urgency_band: String(item.payload?.urgency_band ?? 'Pending'),
-    estimated_duration_hours: Number(item.payload?.estimated_duration_hours ?? 0),
-    department: String(item.payload?.department ?? item.source_system ?? 'Engineering'),
-    description: String(item.payload?.description ?? 'CRIS defect pending re-optimization.'),
-    reported_at: String(item.payload?.reported_at ?? ''),
-    reason: 'CONTENTION',
-  }));
+  const pendingAsDefects = pendingDefects.map(pendingDefectToDisplayDefect);
   const unscheduledById = new Set([
     ...unscheduledDefects.map((item) => item.defect_id),
-    ...pendingAsUnscheduled.map((item) => item.defect_id),
+    ...pendingAsDefects.map((item) => item.defect_id),
   ]);
-  const unscheduledAsDefects: Defect[] = [...unscheduledDefects, ...pendingAsUnscheduled]
-    .filter((item, index, items) => items.findIndex((candidate) => candidate.defect_id === item.defect_id) === index)
-    .map((item) => ({
+  const classifiedAsDefects: Defect[] = unscheduledDefects.map((item) => ({
       defect_id: item.defect_id,
       department: item.department ?? 'Engineering',
       section_id: item.section_id,
@@ -147,8 +137,9 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
     }));
   const searchableDefects: Defect[] = [
     ...defects,
-    ...unscheduledAsDefects.filter((item) => !defects.some((defect) => defect.defect_id === item.defect_id)),
-  ];
+    ...classifiedAsDefects,
+    ...pendingAsDefects,
+  ].filter((item, index, items) => items.findIndex((candidate) => candidate.defect_id === item.defect_id) === index);
 
   // Robust Filtered Defects for Worklist Table, including unscheduled/pending CRIS defects.
   const filteredDefects = searchableDefects.filter((def) => {
@@ -173,7 +164,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
 
   // Find defect helper for click-through
   const findDefect = (defectId: string): Defect => {
-    const found = defects.find(d => d.defect_id === defectId);
+    const found = searchableDefects.find(d => d.defect_id === defectId);
     if (found) return found;
     return {
       defect_id: defectId,
@@ -233,6 +224,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
   const CurrentPerspectiveInfo = perspectiveExplainer[activeDept];
   const PerspectiveIcon = CurrentPerspectiveInfo.icon;
   const showDepartmentInvokers = role === 'COA_ADMIN';
+  const pendingCount = pendingAsDefects.filter((defect) => !defects.some((masterDefect) => masterDefect.defect_id === defect.defect_id)).length;
 
   const latestOverrideByDefect = new Map<string, AuditLogEntry>();
   overrideEntries
@@ -259,6 +251,17 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
     );
   };
 
+  const renderNewBadge = (defectId: string) => {
+    const item = searchableDefects.find((defect) => defect.defect_id === defectId);
+    if (!item || !isNewDefect(item)) return null;
+    const addedAt = formatAddedAt(item.reported_at);
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-1.5 py-0.5 text-[9px] font-mono font-bold text-[var(--accent-green)]" title={addedAt ? `Reported ${addedAt}` : 'Recently created'}>
+        NEW{addedAt ? ` · Added ${addedAt}` : ''}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-12">
       
@@ -274,7 +277,9 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
             {horizon === 'weekly' ? 'Weekly (7d)' : 'Monthly (30d)'} {CurrentPerspectiveInfo.title}
           </h2>
           <p className="text-xs text-[var(--text-body)] mt-1 max-w-xl">
-            {CurrentPerspectiveInfo.desc}
+            {activeDept === 'ALL'
+              ? `Showing ${searchableDefects.length} corridor work orders across Track Engineering, Traction / OHE, and Signals & Telecom. ${pendingCount ? `${pendingCount} newly reported defect${pendingCount === 1 ? ' is' : 's are'} pending re-optimization and not yet assigned to a horizon.` : 'All current defects are included.'}`
+              : CurrentPerspectiveInfo.desc}
           </p>
         </div>
 
@@ -305,6 +310,14 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
         </div>
       </div>
 
+      {pendingCount > 0 && (
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-4 py-2.5 text-xs font-mono text-[var(--text-heading)]">
+          <span className="rounded-full border border-[var(--accent-green-border)] bg-[var(--bg-surface)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--accent-green)]">{pendingCount} NEW</span>
+          <span>Pending re-optimization; not assigned to the {horizon} schedule yet.</span>
+          <span className="text-[var(--accent-amber)]">{pendingAsDefects.filter((item) => !defects.some((master) => master.defect_id === item.defect_id)).map((item) => item.defect_id).join(', ')}</span>
+        </div>
+      )}
+
       {/* Dynamic Perspective Explainer Banner */}
       <div className="glass-card rounded-2xl p-4 flex items-center justify-between gap-4 border-l-4 border-l-[var(--accent-amber)]">
         <div className="flex items-center gap-3">
@@ -317,7 +330,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                 Active Perspective: {CurrentPerspectiveInfo.title}
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] font-bold">
-                {activeDept === 'ALL' ? `${defects.length} Total Orders` : `${filteredDefects.length} Dedicated Orders`}
+                {activeDept === 'ALL' ? `${searchableDefects.length} Total Orders` : `${filteredDefects.length} Dedicated Orders`}
               </span>
             </div>
             <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
@@ -615,6 +628,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                                   title="Click to view explainability details"
                                 >
                                   <span>{id}</span>
+                                  {renderNewBadge(id)}
                                   {renderOverrideBadge(id)}
                                   <Eye className="w-2.5 h-2.5" />
                                 </button>
@@ -716,7 +730,7 @@ export const PlanScheduleView: React.FC<PlanScheduleViewProps> = ({
                         <td className="py-2.5 font-bold text-[var(--accent-amber)]">
                           <div className="flex items-center gap-2">
                             <span>{defect.defect_id}</span>
-                            {defect.reported_at && <span className="text-[9px] font-normal text-[var(--accent-green)]">Added {new Date(defect.reported_at).toLocaleString()}</span>}
+                            {renderNewBadge(defect.defect_id)}
                             {renderOverrideBadge(defect.defect_id)}
                           </div>
                         </td>

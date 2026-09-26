@@ -568,7 +568,12 @@ def _slot_remaining_hours(slot_id: str, slots_df: pd.DataFrame, slot_lookup: dic
     return max(0.0, target_duration - used_duration)
 
 
-def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
+def _build_override_preview(
+    payload: dict[str, Any],
+    *,
+    section_id: str | None = None,
+    live_state: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame] | None = None,
+) -> dict[str, Any]:
     """Build a preview of what a proposed slot override would produce.
 
     reason_category is required in the payload at PREVIEW time, not only at
@@ -583,7 +588,7 @@ def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
     if not defect_id or not target_slot_id:
         raise HTTPException(status_code=400, detail="defect_id and target_slot_id are required.")
 
-    defects_df, slots_df, schedule_df = _load_live_state(horizon)
+    defects_df, slots_df, schedule_df = live_state or _load_live_state(horizon)
 
     if defects_df.empty or slots_df.empty:
         raise HTTPException(status_code=404, detail=f"No live data available for {horizon} horizon.")
@@ -651,6 +656,7 @@ def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
             horizon=horizon,
             pinned_assignments=pinned_assignments,
             relax_p1_requirement=True,
+            section_id=section_id,
         )
     except RuntimeError as exc:
         # Physical capacity infeasibility: slot cannot hold the pin at all.
@@ -662,6 +668,12 @@ def _build_override_preview(payload: dict[str, Any]) -> dict[str, Any]:
     new_scheduled_ids = set()
     for slot in scheduled_slots:
         new_scheduled_ids.update(slot.assigned_defect_ids)
+    if section_id is not None and not schedule_df.empty and "section_id" in schedule_df.columns:
+        untouched_schedule_rows = schedule_df[
+            schedule_df["section_id"].astype(str).str.strip() != str(section_id).strip()
+        ]
+        for assigned_ids in untouched_schedule_rows.get("assigned_defect_ids", pd.Series(dtype="object")):
+            new_scheduled_ids.update(_parse_assigned_ids(assigned_ids))
 
     newly_deferred = sorted(current_scheduled_ids - new_scheduled_ids)
     result["newly_deferred"] = newly_deferred
@@ -1083,7 +1095,16 @@ def preview_override(
     and reason_category is not in EMERGENCY_REASON_CATEGORIES, a 403 is returned
     before the officer can proceed to confirm.
     """
-    preview = _build_override_preview(payload)
+    horizon = _normalize_horizon(str(payload.get("horizon", "")))
+    defect_id = str(payload.get("defect_id", "")).strip()
+    defects_df, slots_df, schedule_df = _load_live_state(horizon)
+    defect_rows = defects_df[defects_df["defect_id"].astype(str).str.strip() == defect_id]
+    section_id = str(defect_rows.iloc[0].get("section_id", "")).strip() if not defect_rows.empty else None
+    preview = _build_override_preview(
+        payload,
+        section_id=section_id,
+        live_state=(defects_df, slots_df, schedule_df),
+    )
     result = {
         "feasible": preview["feasible"],
         "reason": preview.get("reason"),
@@ -1118,7 +1139,7 @@ def confirm_override(
     horizon = _normalize_horizon(payload.get("horizon", ""))
     defect_id = str(payload.get("defect_id", "")).strip()
     target_slot_id = str(payload.get("target_slot_id", "")).strip()
-    _, _, live_schedule = _load_live_state(horizon)
+    defects_df, slots_df, live_schedule = _load_live_state(horizon)
     _, defect_slot_lookup = _schedule_lookup(live_schedule)
     current_slot_id = defect_slot_lookup.get(defect_id)
     if current_slot_id and current_slot_id == target_slot_id:
@@ -1132,13 +1153,20 @@ def confirm_override(
             },
         )
 
+    defect_rows = defects_df[defects_df["defect_id"].astype(str).str.strip() == defect_id]
+    if defect_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Defect {defect_id} was not found in the current defect dataset.")
+    section_id = str(defect_rows.iloc[0].get("section_id", "")).strip()
+
     preview = _build_override_preview(
         {
             "defect_id": defect_id,
             "target_slot_id": target_slot_id,
             "horizon": horizon,
             "reason_category": reason_category,
-        }
+        },
+        section_id=section_id,
+        live_state=(defects_df, slots_df, live_schedule),
     )
 
     if not preview["feasible"]:
@@ -1162,8 +1190,8 @@ def confirm_override(
                 "horizon": preview["horizon"],
                 "defect_id": preview["defect_id"],
                 "target_slot_id": preview["target_slot_id"],
-                "schedule": _clean_frame(pd.DataFrame([slot.__dict__ for slot in preview["scheduled_slots"]])),
-                "unscheduled": _clean_frame(preview["unscheduled_df"]),
+                "schedule": _clean_frame(live_schedule),
+                "unscheduled": _clean_frame(_read_csv(OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv")),
             }
 
         previous_override_id = _get_previous_override_id(conn, preview["defect_id"])
@@ -1192,6 +1220,79 @@ def confirm_override(
             },
         )
 
+    section_scheduled_slots = preview["scheduled_slots"]
+    section_unscheduled_df = preview["unscheduled_df"]
+    section_schedule_df = pd.DataFrame([slot.__dict__ for slot in section_scheduled_slots])
+    if not live_schedule.empty and "section_id" in live_schedule.columns:
+        untouched_schedule_df = live_schedule[
+            live_schedule["section_id"].astype(str).str.strip() != section_id
+        ].copy()
+    else:
+        untouched_schedule_df = pd.DataFrame(columns=section_schedule_df.columns)
+    merged_schedule_df = pd.concat([untouched_schedule_df, section_schedule_df], ignore_index=True, sort=False)
+
+    scheduled_ids_after = set()
+    for assigned_ids in merged_schedule_df.get("assigned_defect_ids", pd.Series(dtype="object")):
+        scheduled_ids_after.update(_parse_assigned_ids(assigned_ids))
+    _, current_defect_slot_lookup = _schedule_lookup(live_schedule)
+    current_scheduled_ids = set(current_defect_slot_lookup)
+    newly_deferred = sorted(current_scheduled_ids - scheduled_ids_after)
+    newly_cleared = sorted(scheduled_ids_after - current_scheduled_ids)
+
+    deferred_rows = defects_df[defects_df["defect_id"].astype(str).isin(newly_deferred)]
+    deferred_p1_ids = deferred_rows[
+        deferred_rows["urgency_band"].astype(str).str.contains("P1", case=False, na=False)
+    ]["defect_id"].astype(str).tolist()
+    has_p1_displacement = bool(deferred_p1_ids)
+    if has_p1_displacement and reason_category not in EMERGENCY_REASON_CATEGORIES:
+        allowed = sorted(EMERGENCY_REASON_CATEGORIES)
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "reason": "p1_displacement_not_authorized",
+                "message": (
+                    f"Deferring a P1 defect requires reason_category to be one of "
+                    f"{allowed}. Received: '{reason_category}'."
+                ),
+                "p1_displacement": True,
+                "newly_deferred": newly_deferred,
+                "reason_category_valid_for_displacement": False,
+            },
+        )
+    if has_p1_displacement and (not reason_freetext or len(reason_freetext) < 20):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "reason": "p1_justification_required",
+                "message": "P1-displacing overrides require a justification with at least 20 characters.",
+            },
+        )
+
+    merged_unscheduled_df = _read_csv(OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv")
+    if not merged_unscheduled_df.empty:
+        if "section_id" in merged_unscheduled_df.columns:
+            unscheduled_section_ids = merged_unscheduled_df["section_id"].astype(str).str.strip()
+        else:
+            defect_sections = defects_df.set_index(defects_df["defect_id"].astype(str))["section_id"].astype(str).str.strip()
+            unscheduled_section_ids = merged_unscheduled_df["defect_id"].astype(str).map(defect_sections).fillna("")
+        untouched_unscheduled_df = merged_unscheduled_df[unscheduled_section_ids != section_id].copy()
+    else:
+        untouched_unscheduled_df = pd.DataFrame(columns=section_unscheduled_df.columns)
+    merged_unscheduled_df = pd.concat(
+        [untouched_unscheduled_df, section_unscheduled_df], ignore_index=True, sort=False
+    )
+
+    confirmed_preview = dict(preview)
+    confirmed_preview["scheduled_slots"] = section_scheduled_slots
+    confirmed_preview["unscheduled_df"] = merged_unscheduled_df
+    confirmed_preview["newly_deferred"] = newly_deferred
+    confirmed_preview["newly_cleared"] = newly_cleared
+    confirmed_preview["p1_displacement"] = has_p1_displacement
+    confirmed_preview["priority_alert"] = bool(
+        not deferred_rows.empty
+        and deferred_rows["urgency_band"].astype(str).str.contains(r"P1|P2", case=False, na=False).any()
+    )
+
     learnable = LEARNABLE_REASON_FLAGS[reason_category]
     now = datetime.now(timezone.utc).isoformat()
 
@@ -1212,12 +1313,15 @@ def confirm_override(
                 "horizon": preview["horizon"],
                 "defect_id": preview["defect_id"],
                 "target_slot_id": preview["target_slot_id"],
-                "schedule": _clean_frame(pd.DataFrame([slot.__dict__ for slot in preview["scheduled_slots"]])),
-                "unscheduled": _clean_frame(preview["unscheduled_df"]),
+                "schedule": _clean_frame(live_schedule),
+                "unscheduled": _clean_frame(_read_csv(OPTIMIZED_DIR / f"unscheduled_{horizon}_defects.csv")),
             }
 
         try:
-            _write_live_schedule(preview["horizon"], preview["scheduled_slots"], preview["unscheduled_df"])
+            schedule_path.parent.mkdir(parents=True, exist_ok=True)
+            merged_schedule_df.to_csv(schedule_path, index=False)
+            unscheduled_path.parent.mkdir(parents=True, exist_ok=True)
+            merged_unscheduled_df.to_csv(unscheduled_path, index=False)
             previous_override_id = _get_previous_override_id(conn, preview["defect_id"])
             conn.execute(
                 """
@@ -1246,8 +1350,8 @@ def confirm_override(
                     reason_category,
                     reason_freetext,
                     learnable,
-                    json.dumps(preview["newly_deferred"]),
-                    int(preview["priority_alert"]),
+                    json.dumps(confirmed_preview["newly_deferred"]),
+                    int(confirmed_preview["priority_alert"]),
                     previous_override_id,
                 ),
             )
@@ -1269,8 +1373,8 @@ def confirm_override(
         "horizon": preview["horizon"],
         "defect_id": preview["defect_id"],
         "target_slot_id": preview["target_slot_id"],
-        "schedule": _clean_frame(pd.DataFrame([slot.__dict__ for slot in preview["scheduled_slots"]])),
-        "unscheduled": _clean_frame(preview["unscheduled_df"]),
+        "schedule": _clean_frame(merged_schedule_df),
+        "unscheduled": _clean_frame(merged_unscheduled_df),
     }
 
 

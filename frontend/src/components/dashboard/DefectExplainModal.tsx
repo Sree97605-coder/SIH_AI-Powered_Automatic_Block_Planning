@@ -51,6 +51,16 @@ const toAssignedIds = (slot: ScheduledSlot): string[] => {
   return typeof assigned === 'string' ? assigned.replace(/\[|\]|'/g, '').split(',').map(v => v.trim()).filter(Boolean) : [];
 };
 
+const isP1DisplacementRejection = (error: unknown): boolean =>
+  error instanceof ApiError &&
+  error.status === 403 &&
+  (error.detail as ApiErrorDetail | null)?.reason === 'p1_displacement_not_authorized';
+
+const P1_CANDIDATE_MESSAGE = 'This would displace a P1 safety-critical defect — use the emergency override flow instead.';
+
+const formatHours = (hours: number): string =>
+  Number.isInteger(hours) ? String(hours) : String(Number(hours.toFixed(2)));
+
 export const buildOverridePreviewNarrative = (preview: OverridePreviewResponse | null): { lead: string; followUp: string | null; summaryLabel: string; closing: string } => {
   if (!preview) {
     return {
@@ -100,6 +110,8 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [p1DisplacingSlotIds, setP1DisplacingSlotIds] = useState<Set<string>>(() => new Set());
+  const [isCheckingCandidateImpacts, setIsCheckingCandidateImpacts] = useState(false);
   // Officer must explicitly acknowledge P1 displacement before Confirm is enabled
   const [p1Acknowledged, setP1Acknowledged] = useState(false);
   const [reoverrideAcknowledged, setReoverrideAcknowledged] = useState(false);
@@ -110,6 +122,8 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     const currentSlot = schedule.find((slot) => toAssignedIds(slot).includes(defect.defect_id));
     const sameSectionSlots = slots.filter((slot) => slot.section_id === defect.section_id);
     const nextTarget = sameSectionSlots.find((slot) => slot.slot_id !== currentSlot?.slot_id)?.slot_id ?? sameSectionSlots[0]?.slot_id ?? '';
+    const candidates = sameSectionSlots.filter((slot) => slot.slot_id !== currentSlot?.slot_id);
+    let cancelled = false;
 
     setTargetSlotId(nextTarget);
     setPreview(null);
@@ -120,7 +134,33 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     setReasonFreetext('');
     setP1Acknowledged(false);
     setReoverrideAcknowledged(false);
-  }, [defect, schedule, slots]);
+    setP1DisplacingSlotIds(new Set());
+    setIsCheckingCandidateImpacts(canOverride && candidates.length > 0);
+
+    if (canOverride && candidates.length > 0) {
+      void Promise.all(candidates.map(async (slot) => {
+        try {
+          const response = await api.previewOverride({
+            defect_id: defect.defect_id,
+            target_slot_id: slot.slot_id,
+            horizon,
+            reason_category: 'prioritization_mistake',
+          });
+          return response.p1_displacement ? slot.slot_id : null;
+        } catch (error: unknown) {
+          return isP1DisplacementRejection(error) ? slot.slot_id : null;
+        }
+      })).then((results) => {
+        if (cancelled) return;
+        setP1DisplacingSlotIds(new Set(results.filter((slotId): slotId is string => slotId !== null)));
+        setIsCheckingCandidateImpacts(false);
+      });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canOverride, defect, horizon, schedule, slots]);
 
   if (!defect) return null;
 
@@ -130,23 +170,49 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
   const mlScore = defect.ml_priority_score ?? (priorityScore + 0.2);
   const currentSlot = schedule.find((slot) => toAssignedIds(slot).includes(defect.defect_id));
   const candidateSlots = slots.filter((slot) => slot.section_id === defect.section_id).sort((a, b) => a.start_datetime.localeCompare(b.start_datetime));
+  const candidateSlotsExcludingCurrent = candidateSlots.filter((slot) => slot.slot_id !== currentSlot?.slot_id);
+  const preponeSlots = currentSlot
+    ? candidateSlotsExcludingCurrent.filter((slot) => slot.start_datetime < currentSlot.start_datetime)
+    : [];
+  const postponeSlots = currentSlot
+    ? candidateSlotsExcludingCurrent.filter((slot) => slot.start_datetime > currentSlot.start_datetime)
+    : candidateSlotsExcludingCurrent;
   const sameSlotSelection = !!currentSlot && !!targetSlotId && currentSlot.slot_id === targetSlotId;
   const hasPreviousOverride = overrideEntries.some((entry) => entry.defect_id === defect.defect_id && entry.horizon === horizon);
 
+  const handleCandidateClick = (slotId: string) => {
+    if (isCheckingCandidateImpacts) {
+      setPreview(null);
+      setPreviewError('Checking candidate impact. Please wait.');
+      return;
+    }
+    if (p1DisplacingSlotIds.has(slotId)) {
+      setTargetSlotId(slotId);
+      setPreview(null);
+      setPreviewError(P1_CANDIDATE_MESSAGE);
+      setPolicyRejection(null);
+      setConfirmMessage(null);
+      setP1Acknowledged(false);
+      return;
+    }
+    void handlePreview(slotId);
+  };
+
   // ── Gap 1 fix: reason_category included in preview call ──────────────────
-  const handlePreview = async () => {
+  const handlePreview = async (requestedTargetSlotId = targetSlotId) => {
+    setTargetSlotId(requestedTargetSlotId);
     setPreview(null);
     setPreviewError(null);
     setPolicyRejection(null);
     setConfirmMessage(null);
     setP1Acknowledged(false);
 
-    if (!targetSlotId) {
+    if (!requestedTargetSlotId) {
       setPreviewError('Choose a target slot before previewing the override.');
       return;
     }
 
-    if (sameSlotSelection) {
+    if (currentSlot?.slot_id === requestedTargetSlotId) {
       setPreviewError("This is the defect's current slot. Choose a different target slot to make a real override.");
       return;
     }
@@ -155,13 +221,21 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
     try {
       const response = await api.previewOverride({
         defect_id: defect.defect_id,
-        target_slot_id: targetSlotId,
+        target_slot_id: requestedTargetSlotId,
         horizon,
         reason_category: reasonCategory,  // ← C1 Gap 1: was missing
       });
       setPreview(response);
       if (!response.feasible) {
-        setPreviewError(response.reason ?? 'Override preview is not feasible.');
+        const slotCapacity = candidateSlots.find((slot) => slot.slot_id === requestedTargetSlotId)?.duration_hours;
+        if (response.required_hours > response.available_hours && slotCapacity !== undefined) {
+          const combinedDuration = slotCapacity - response.available_hours + response.required_hours;
+          setPreviewError(
+            `Combined duration ${formatHours(combinedDuration)}h exceeds slot capacity ${formatHours(slotCapacity)}h`,
+          );
+        } else {
+          setPreviewError(response.reason ?? 'Override preview is not feasible.');
+        }
       }
     } catch (err: unknown) {
       // ── Gap 2 fix: three-way error handling ──────────────────────────────
@@ -321,12 +395,37 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                   </div>
 
                   <div>
-                    <label htmlFor="target-slot" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Target slot</label>
+                    <label htmlFor="target-slot" className="block text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">Target slot candidates</label>
+                    <div className="space-y-3">
+                      {([['Prepone', preponeSlots], ['Postpone', postponeSlots]] as const).map(([label, group]) => (
+                        <div key={label}>
+                          <div className="text-[10px] font-mono uppercase text-[var(--text-muted)] mb-1">{label}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {group.length === 0 && (
+                              <span className="text-[10px] font-mono text-[var(--text-muted)]">No candidate slots</span>
+                            )}
+                            {group.map((slot) => (
+                              <button
+                                key={slot.slot_id}
+                                type="button"
+                                aria-label={`Candidate slot ${slot.slot_id} ${formatSlotWindow(slot.start_datetime, slot.duration_hours, slot.end_datetime)}`}
+                                aria-disabled={isCheckingCandidateImpacts || p1DisplacingSlotIds.has(slot.slot_id)}
+                                onClick={() => handleCandidateClick(slot.slot_id)}
+                                className={`rounded-xl border px-3 py-2 text-left text-[10px] font-mono transition-colors ${isCheckingCandidateImpacts || p1DisplacingSlotIds.has(slot.slot_id) ? 'border-[var(--border-subtle)] bg-[var(--bg-pill)] text-[var(--text-muted)] opacity-60 cursor-not-allowed' : `cursor-pointer ${targetSlotId === slot.slot_id ? 'border-[var(--accent-amber)] bg-[var(--accent-amber-bg)] text-[var(--accent-amber)]' : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-heading)] hover:border-[var(--accent-amber-border)]'}`}`}
+                              >
+                                <span className="block font-bold">{slot.slot_id}</span>
+                                <span className="block mt-1 text-[var(--text-muted)]">{formatSlotWindow(slot.start_datetime, slot.duration_hours, slot.end_datetime)}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     <select
                       id="target-slot"
                       value={targetSlotId}
                       onChange={(e) => { setTargetSlotId(e.target.value); setPreview(null); setPolicyRejection(null); setPreviewError(null); setP1Acknowledged(false); }}
-                      className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-xs font-mono text-[var(--text-heading)] focus:border-[var(--accent-amber)] focus:outline-none"
+                      className="sr-only"
                     >
                       {candidateSlots.length === 0 && <option value="">No compatible slots available</option>}
                       {candidateSlots.map((slot) => (
@@ -428,7 +527,7 @@ export const DefectExplainModal: React.FC<DefectExplainModalProps> = ({
                   <div className="flex flex-wrap gap-2">
                     <button
                       id="btn-preview-override"
-                      onClick={handlePreview}
+                      onClick={() => { void handlePreview(); }}
                       disabled={isPreviewing || !targetSlotId || !reasonCategory || sameSlotSelection}
                       className="px-4 py-2 rounded-full bg-[var(--accent-amber)] text-[var(--text-inverse)] text-xs font-mono font-bold disabled:opacity-50 cursor-pointer"
                     >

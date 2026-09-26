@@ -26,6 +26,7 @@ export interface Defect {
   unscheduled_reason?: string;
   source_system?: 'TMS' | 'SMMS' | 'TDMS' | string;
   reported_at?: string;
+  is_new?: boolean;
 }
 
 export interface BlockSlot {

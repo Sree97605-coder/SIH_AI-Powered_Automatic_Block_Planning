@@ -6,18 +6,21 @@ import {
 } from 'lucide-react';
 import { HorizonType, UnscheduledDefect, Defect } from '../../../types';
 import { UNSCHEDULED_MONTHLY_CONTENTION } from '../../../config/constants';
+import { formatAddedAt, isNewDefect } from '../../../utils/newDefects';
 
 interface UnscheduledViewProps {
   horizon: HorizonType;
   classifications: UnscheduledDefect[];
   isLoading: boolean;
   onSelectDefect: (defect: Defect) => void;
+  pendingDefects?: Defect[];
 }
 
 export const UnscheduledView: React.FC<UnscheduledViewProps> = ({
   horizon,
   classifications,
   onSelectDefect,
+  pendingDefects = [],
 }) => {
   const items = (classifications && classifications.length > 0)
     ? classifications
@@ -57,6 +60,31 @@ export const UnscheduledView: React.FC<UnscheduledViewProps> = ({
           Actionable separation of genuine traffic density time contention from corridor track geometry infeasibility.
         </p>
       </div>
+
+      {pendingDefects.length > 0 && (
+        <section className="glass-card-elevated rounded-3xl p-6 sm:p-8 space-y-4" aria-label="Pending re-optimization">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
+            <div>
+              <h3 className="font-display font-bold text-base text-[var(--text-heading)]">Pending Re-optimization</h3>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">These newly reported defects are queued and do not yet have a weekly or monthly slot assignment.</p>
+            </div>
+            <span className="rounded-full border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-2.5 py-1 text-[10px] font-mono font-bold text-[var(--accent-green)]">{pendingDefects.length} NEW</span>
+          </div>
+          <div className="space-y-2">
+            {pendingDefects.map((defect) => (
+              <button key={defect.defect_id} type="button" onClick={() => onSelectDefect(defect)} className="w-full flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card-subtle)] px-3 py-2.5 text-left hover:border-[var(--accent-green-border)] cursor-pointer">
+                <span className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                  <strong className="text-[var(--accent-amber)]">{defect.defect_id}</strong>
+                  {isNewDefect(defect) && <span className="rounded-full border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--accent-green)]">NEW</span>}
+                  <span className="text-[var(--text-muted)]">{defect.section_id} · {defect.department}</span>
+                  <span className="text-[var(--text-heading)]">{defect.defect_type}</span>
+                </span>
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">{formatAddedAt(defect.reported_at) ? `Added ${formatAddedAt(defect.reported_at)}` : defect.urgency_band}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* POSITIVE 0 INFEASIBLE BANNER */}
       <div className="glass-card-elevated rounded-2xl p-6 border border-[var(--accent-green-border)] bg-[var(--accent-green-bg)] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">

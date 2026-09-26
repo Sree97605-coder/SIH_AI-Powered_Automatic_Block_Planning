@@ -1703,18 +1703,28 @@ class ClassicalOptimizationTests(unittest.TestCase):
                 [
                     {"defect_id": "X-1", "section_id": "SEC-TEST", "department": "Engineering", "estimated_duration_hours": 2.0, "urgency_band": "P2 - Urgent", "final_priority_score": 70.0},
                     {"defect_id": "X-2", "section_id": "SEC-TEST", "department": "TRD", "estimated_duration_hours": 1.5, "urgency_band": "P3 - Planned", "final_priority_score": 40.0},
+                    {"defect_id": "OTHER-1", "section_id": "SEC-OTHER", "department": "Engineering", "estimated_duration_hours": 1.0, "urgency_band": "P3 - Planned", "final_priority_score": 55.0},
+                    {"defect_id": "OTHER-2", "section_id": "SEC-OTHER", "department": "TRD", "estimated_duration_hours": 1.5, "urgency_band": "P3 - Planned", "final_priority_score": 45.0},
                 ]
             )
             slots = pd.DataFrame(
                 [
                     {"slot_id": "SLOT-1", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T00:00:00", "end_datetime": "2026-09-07T03:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
                     {"slot_id": "SLOT-2", "section_id": "SEC-TEST", "start_datetime": "2026-09-07T03:00:00", "end_datetime": "2026-09-07T06:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "OTHER-SLOT-1", "section_id": "SEC-OTHER", "start_datetime": "2026-09-07T00:00:00", "end_datetime": "2026-09-07T03:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
+                    {"slot_id": "OTHER-SLOT-2", "section_id": "SEC-OTHER", "start_datetime": "2026-09-07T03:00:00", "end_datetime": "2026-09-07T06:00:00", "duration_hours": 3.0, "is_night_window": True, "traffic_density": "High", "source": "Timetable", "horizon": "weekly"},
                 ]
             )
             defects.to_csv(tmp_path / "prioritized_defects.csv", index=False)
             slots.to_csv(tmp_path / "block_slots.csv", index=False)
             with _patch_section_by_id():
                 scheduled, unscheduled, _ = optimize_schedule(data_dir=tmp_path, horizon="weekly")
+            _, before_defect_slots = api._schedule_lookup(pd.DataFrame([slot.__dict__ for slot in scheduled]))
+            before_other_section = {
+                defect_id: slot_id
+                for defect_id, slot_id in before_defect_slots.items()
+                if defect_id.startswith("OTHER-")
+            }
             (tmp_path / "optimized").mkdir(parents=True, exist_ok=True)
             pd.DataFrame([asdict(slot) for slot in scheduled]).to_csv(tmp_path / "optimized" / "weekly_schedule.csv", index=False)
             unscheduled.to_csv(tmp_path / "optimized" / "unscheduled_weekly_defects.csv", index=False)
@@ -1742,6 +1752,13 @@ class ClassicalOptimizationTests(unittest.TestCase):
                 self.assertEqual(result["message"], "Override confirmed and committed.")
 
                 live_schedule = pd.read_csv(tmp_path / "optimized" / "weekly_schedule.csv")
+                _, after_defect_slots = api._schedule_lookup(live_schedule)
+                after_other_section = {
+                    defect_id: slot_id
+                    for defect_id, slot_id in after_defect_slots.items()
+                    if defect_id.startswith("OTHER-")
+                }
+                self.assertEqual(after_other_section, before_other_section)
                 current_slot_row = live_schedule[live_schedule["slot_id"].astype(str) == initial_slot].iloc[0]
                 target_slot_row = live_schedule[live_schedule["slot_id"].astype(str) == target_slot].iloc[0]
                 self.assertNotIn("X-1", str(current_slot_row.get("assigned_defect_ids", "")))
